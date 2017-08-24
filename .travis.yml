@@ -1,21 +1,23 @@
 language: python
 python:
-- '2.7'
-- '3.6'
+  - '2.7'
+  - '3.6'
+
 before_install:
-- pip install -U pip setuptools wheel
+  - pip install -U pip setuptools wheel
+
 install:
-- travis_wait pip install -r requirements.txt
-- pip install -r test_requirements.txt
-- pip install .
-- pip install --quiet coverage
-- pip install --quiet coveralls
+  - travis_wait pip install -r requirements.txt
+  - pip install -r test_requirements.txt
+  - pip install .
+  - pip install --quiet coverage
+  - pip install --quiet coveralls
 script:
-- pytest -v --doctest-modules --ignore=setup.py --cov=. --cov-report=
+  - pytest -v --doctest-modules --ignore=setup.py --cov=. --cov-report=
 after_success:
-- coveralls
+  - coveralls
+
 deploy:
-  matrix:
   - provider: pypi
     distributions: bdist_wheel
     server: https://test.pypi.org/legacy/
