@@ -138,7 +138,7 @@ def _find_run_dependancies(runs):
     current_level = top_level
     while current_level:
         next_level = {}
-        for i, run in enumerate(remaining[:]):
+        for run in remaining[:]:
             if run['requires'] in current_level:
                 current_level[run['requires']]['children'].append(run['id'])
                 next_level[run['id']] = run

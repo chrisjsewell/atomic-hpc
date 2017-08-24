@@ -1,7 +1,7 @@
 import pytest
 from jsonextended import edict, utils
 from jsonschema import ValidationError
-import json
+# import json
 
 from atomic_hpc.config_yaml import _format_config_yaml, _find_run_dependancies
 
