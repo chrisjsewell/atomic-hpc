@@ -1,43 +1,36 @@
 language: python
-
 python:
-    - "2.7"
-    - "3.6"
-
+- '2.7'
+- '3.6'
 before_install:
-  - pip install -U pip setuptools wheel
-
+- pip install -U pip setuptools wheel
 install:
-    - travis_wait pip install -r requirements.txt
-    - pip install -r test_requirements.txt
-    - pip install .
-    - pip install --quiet coverage
-    - pip install --quiet coveralls
-
+- travis_wait pip install -r requirements.txt
+- pip install -r test_requirements.txt
+- pip install .
+- pip install --quiet coverage
+- pip install --quiet coveralls
 script:
-    - pytest -v --doctest-modules --ignore=setup.py --cov=. --cov-report=
-
+- pytest -v --doctest-modules --ignore=setup.py --cov=. --cov-report=
 after_success:
-    - coveralls
-
+- coveralls
 deploy:
-    # test pypi
+  matrix:
   - provider: pypi
-    distributions: bdist_wheel 
+    distributions: bdist_wheel
     server: https://test.pypi.org/legacy/
     user: cjsewell
     password:
-      secure: aC73JgjVXqRB2OX9ut8mv3HnUYMGuFzBZjFa6ZxWA/4WYLP5hyfEAP6w2kW4Thspbo7B4X/chMBb3DzsO2q8XDLmiEcCy6wyt8LYGxgEXrg6t+SvwbkvsyHCr2aCO5K6a0qL3Hd2B/y/+APT3c2vPho6AYjEkGhUQmzIT3yCo6Ss3E++LdhudY7qbxno896IeymAsawUCtSOD1f2KREy0GtzuyUitqyaf5J6rSmENQwj1rIl+wzPI4tILgL3CIfAO9JE2xygvWP7s2lWYy+Ln/o+CjjiLsmhGYy8CcIIDQ8VSyOh/UT0T7IVyEMpHLY2twdjLMH4NUA6EpEKFxDosah8Zmsl0gzgkE1VZF+ARuOZQcMyRFCDOFHILDpAPTKrj7qMj+ZCq2AoZmGy4H7eEDYXNdPRwUonF4ofhsr6ZyRUK5UtQhWXXrvx/nDqwDIWo7G1U5ZBy5DSO4OWa2VIgbhOiubWmmx6epbAV6gsR8i1R5obB0sB7AU2HVeuBCeWZnwNklBG4gTbxNbdNRVp5KcKVm9rHU/w+ZHBI/Q2Acb9+JlhQlnOyWUm0Vq+53cM+BZLLxFRw4Jc5XL+fU8PlzI3nFWnsI1Z+hXeJG5EmG/BchCHinTzE55NeryDtXzAQPI/KSuOfJTYemvz5bwEXiQEpSJYXG9hvmMI3h1a7x0=
+      secure: W6i6EWcKKdacZyw4/ctjMRESTxwHt90ZDrUNXu7GfTwy9cA1Z/nPRJAuVFedwNzwI7Dow5v4KKbD028ji4QLhcTKDixg/2rG4NNZkqqeaseQk5ErK9zZZGK1BfbO4Df80wE5UZTYJ12IvOWFbWXDwxNlyisjnS7OAE2gFhsidSaZ0ydhyZOrNNMpea+362RyUiIPHmXm6XOCS7aBcHxE3ZKb64+IJI4MBFExhtpsaUgP82wNEA+Gxaq6jshmTGfSG1x1FNMkNdZgQnBCAP7CvnEt8t5KiNZmSJ0z/Hx3D7Oa+0CVy3pIq1Ouf2UJbtBGwhJrhY7AaI1NkSQHU1d0QZC9pfXl0E83N/vTUYjoPDSJJDcE6bE7Y5z64BY5oaRnhHO8eWv8RaJtsQ7Ibr+S80y+G8yuBhtP4uQ4wZtDAPQcu3DUUUBom3wPEqcWhyXebgGiPYmB1+Aw+CAsbSwnJygDZ8ANRgEkfhU6g7E5UuMSyk3YRlT7zO0qhbf6VfRt+8G5nIxyX1rnTiTcr8O1jd84fE9G78sa/7qv5jIZlpZXxSgjG5OXex34zAxY3zm5ZkAbKOL3DvlYtk3pFmZp1d8a9o90stL4E0MpRXMRqgv5CnPSmtajN0gcqg+mQlPJiix/8D7Lu1RZMsvf60dAU03xuOKO8N67l/6E4iZAMi0=
     on:
       branch: master
       tags: false
       condition: $TRAVIS_PYTHON_VERSION = "3.6"
-     # production pypi
   - provider: pypi
     distributions: bdist_wheel
-    user: "cjsewell"
+    user: cjsewell
     password:
-      secure: KhgfNkJaHD7CDI49Wbz16b78SGuM9ROTDrk2kqILXWBohKPe6N6RAYMDSRkJldmCG3/ryg5QMOU38HLqnkFA2cNoBt1TShrF7nsVIXdKEsRnQDynXqnSXRrQ4mGIlEnOjcWUPL8t7y1t1+4qjHH3rBVojgR3dsfKTJSKF7lhd7MpWoOhh7u2tRQHqIp3jteqDlh4EpTp/9ClOjTOcUl2w4NgOUr64h8cseXV4YZPhhMrLGr1gKYLaPY8btkm2iSI8p0Vm4tuSyNLQTT73mrEVHAfSNZQT+wFRgA5xaP8FVescdd9ftotbbgsIeh7Ke464n/5htWSfurrQUc4ZQNtUTDj5riD4BVtdBz1T9tFbn+w93b/v/dO5XJKObj3n1oG3w0iBnlfl6obGyb46Y6FsmMt+sYYC67EgFeulJaAKPiF3OSZvEpE/zgvqNLVG2SbrPmLj/TPGqoQA3fNXQdoqmldLrliq5FqvruNPprsMrf9tDV2E/mIMuAQDWgtTRCEkdZallP2Cyj7zFLB9FQJ8qepwselUWoAAvvoaFgNRSFfcCQQgZ3MU465g01bXYmRKynCeksD/stmn78fSkVnZdxoBrjTLxgyS8XSAOlOmMzd0iNfrmi2AgiyCnO9vfHWV7vPjEO6Ui5Q6Uc6D0k30d0/dzJt7sxtJWLMfV2lDmE=
+      secure: W6i6EWcKKdacZyw4/ctjMRESTxwHt90ZDrUNXu7GfTwy9cA1Z/nPRJAuVFedwNzwI7Dow5v4KKbD028ji4QLhcTKDixg/2rG4NNZkqqeaseQk5ErK9zZZGK1BfbO4Df80wE5UZTYJ12IvOWFbWXDwxNlyisjnS7OAE2gFhsidSaZ0ydhyZOrNNMpea+362RyUiIPHmXm6XOCS7aBcHxE3ZKb64+IJI4MBFExhtpsaUgP82wNEA+Gxaq6jshmTGfSG1x1FNMkNdZgQnBCAP7CvnEt8t5KiNZmSJ0z/Hx3D7Oa+0CVy3pIq1Ouf2UJbtBGwhJrhY7AaI1NkSQHU1d0QZC9pfXl0E83N/vTUYjoPDSJJDcE6bE7Y5z64BY5oaRnhHO8eWv8RaJtsQ7Ibr+S80y+G8yuBhtP4uQ4wZtDAPQcu3DUUUBom3wPEqcWhyXebgGiPYmB1+Aw+CAsbSwnJygDZ8ANRgEkfhU6g7E5UuMSyk3YRlT7zO0qhbf6VfRt+8G5nIxyX1rnTiTcr8O1jd84fE9G78sa/7qv5jIZlpZXxSgjG5OXex34zAxY3zm5ZkAbKOL3DvlYtk3pFmZp1d8a9o90stL4E0MpRXMRqgv5CnPSmtajN0gcqg+mQlPJiix/8D7Lu1RZMsvf60dAU03xuOKO8N67l/6E4iZAMi0=
     on:
       branch: master
       tags: true
