@@ -1,6 +1,17 @@
+import logging
+import os
 from ruamel.yaml import YAML
 from jsonschema import validate, ValidationError
 from jsonextended import edict
+
+# python 2/3 compatibility
+try:
+    basestring
+except NameError:
+    basestring = str
+
+# TODO split local into darwin, windows, linux
+# TODO have (global) pre run commands
 
 _config_schema = {
     "type": "object",
@@ -12,82 +23,145 @@ _config_schema = {
     }
 }
 
-_run_schema = {
+_qsub_schema = {
     "type": "object",
-    "required": ["program", "compute", "run", "name", "script", "outpath"],
+    "required": ["nnodes", "cores_per_node", "walltime", "queue", "modules",
+                 "before_run", "run", "from_temp", "after_run"],
     "properties": {
-        "id": {"type": "integer"},
-        "program": {"type": "string"},
-        "compute": {"type": "string"},
-        "name": {"type": "string"},
-        "script": {"type": "string"},
-        "outpath": {"type": "string"},
-        "run": {"type": "string", "oneOf": [{"pattern": "hpc"}, {"pattern": "local"}]},
-        "variables": {"type": "array", "items": {"type": "object", "maxProperties": 1}},
-        "paths": {"type": "array", "items": {"type": "object", "maxProperties": 1}},
-        "requires": {"type": ["integer", "null"]}
-        # "requires": {"type": "array", "items": {"type": "integer"}}
-    }
-}
 
-_hpc_schema = {
-    "type": "object",
-    "required": ["nprocs", "modules"],
-    "properties": {
-        "nprocs": {"type": "integer"},
-        "modules": {"type": "array", "items": {"type": "string"}},
-        "prog_options": {"type": "array", "items": {"type": "object", "maxProperties":1}},
-        "queue": {"type": "string"},
-        "walltime": {"type": "string", "format": "date-time"}
-    }
+        "cores_per_node": {"type": "integer"},
+        "nnodes": {"type": "integer"},
+        "walltime": {"type": "string", "format": "date-time"},
+        "queue": {"type": ["string", "null"]},
+        "email": {"type": "boolean"},
+        "modules": {"type": ["array", "null"], "items": {"type": "string"}},
+
+        "before_run": {"type": ["array", "null"], "items": {"type": "string"}},
+        "run": {"type": ["array", "null"], "items": {"type": "string"}},
+        "from_temp": {"type": ["array", "null"], "items": {"type": "string"}},
+        "after_run": {"type": ["array", "null"], "items": {"type": "string"}},
+    },
+    "additionalProperties": False,
+
 }
 _local_schema = {
     "type": "object",
-    "required": ["nprocs"],
+    "required": ["run"],
     "properties": {
-        "nprocs": {"type": "integer"},
-        "prog_options": {"type": "array", "items": {"type": "object", "maxProperties": 1}},
-        "mpi": {"type": "string"},
 
+        #        "nprocs": {"type": "integer"},
+        "run": {"type": ["array", "null"], "items": {"type": "string"}},
+
+    },
+    "additionalProperties": False,
+
+}
+
+_run_schema = {
+    "type": "object",
+    "required": ["id", "name", "description", "requires", "scripts", "files", "variables", "cleanup",
+                 "outpath", "environment"],
+    "properties": {
+
+        "id": {"type": "integer"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "requires": {"type": ["integer", "null"]},
+
+        "scripts": {"type": ["array", "null"], "items": {"type": "string"}},
+        "files": {"type": ["object", "null"], "patternProperties": {'.+': {"type": "string"}}},
+        "variables": {"type": ["object", "null"]},
+
+        "outpath": {"type": "string"},
+        "cleanup": {"type": "object", "required": ["remove", "aliases"],
+                    "properties": {
+                        "remove":  {"type": ["array", "null"], "items": {"type": "string"}},
+                        "aliases": {"type": ["object", "null"], "patternProperties": {'.+': {"type": "string"}}}
+                        },
+                    "additionalProperties": False,
+                    },
+        "environment": {"type": "string", "oneOf": [{"pattern": "qsub"}, {"pattern": "local"}]},
+
+        "qsub": _qsub_schema,
+        "local": _local_schema,
+    },
+    "additionalProperties": False,
+
+}
+
+
+_global_defaults = {
+    "description": "",
+    "requires": None,
+
+    "scripts": None,
+    "files": None,
+    "variables": None,
+
+    "outpath": "output",
+    "cleanup": {"remove": None, "aliases": None},
+
+    "environment": "local",
+
+    "local": {
+        #        "nprocs": 1,
+        "run": None
+    },
+
+    "qsub": {
+        "cores_per_node": 16,
+        "nnodes": 1,
+        "walltime": "24:00:00",
+        "queue": None,
+        "email": True,
+        "modules": None,
+
+        "before_run": None,
+        "run": None,
+        "from_temp": None,
+        "after_run": None,
     }
+
 }
 
 
 def _format_config_yaml(file_obj):
-    """read config, merge defaults into runs, for each run: drop local or hpc and check against schema
+    """read config, merge defaults into runs, for each run: drop local or qsub and check against schema
 
     Parameters
     ----------
     file_obj : file_like
 
     """
+    logging.info("reading yaml")
 
-    yaml = YAML()
-    dct = yaml.load(file_obj)
+    ryaml = YAML()
+    dct = ryaml.load(file_obj)
     validate(dct, _config_schema)
     runs = []
-    defaults = dct.get('defaults', {})
+    defaults = edict.merge([_global_defaults, dct.get('defaults', {})], overwrite=True)
+
     for i, run in enumerate(dct['runs']):
 
         new_run = edict.merge([defaults, run], overwrite=True)
         try:
             validate(new_run, _run_schema)
         except ValidationError as err:
-            raise ValidationError("error in run #{0} config:\n{1}".format(i+1, err))
+            raise ValidationError("error in run #{0} config:\n{1}".format(i + 1, err))
 
-        rtype = new_run["run"]
-        if rtype == "local":
-            new_run.pop("hpc")
-            try:
-                validate(new_run['local'], _local_schema)
-            except ValidationError as err:
-                raise ValidationError("error in run #{0} local config:\n{1}".format(i + 1, err))
-        else:
-            new_run.pop("local")
-            try:
-                validate(new_run['hpc'], _hpc_schema)
-            except ValidationError as err:
-                raise ValidationError("error in run #{0} hpc config:\n{1}".format(i+1, err))
+        # rtype = new_run["environment"]
+        # if rtype == "local":
+        #     new_run.pop("qsub")
+        #     try:
+        #         validate(new_run['local'], _local_schema)
+        #     except ValidationError as err:
+        #         raise ValidationError("error in run #{0} local environment config:\n{1}".format(i + 1, err))
+        # else:
+        #     new_run.pop("local")
+        #     try:
+        #         validate(new_run['qsub'], _qsub_schema)
+        #     except ValidationError as err:
+        #         raise ValidationError("error in run #{0} qsub environment config:\n{1}".format(i + 1, err))
 
         runs.append(new_run)
 
@@ -97,11 +171,9 @@ def _format_config_yaml(file_obj):
         raise ValidationError("the run ids are not unique: {}".format(ids))
 
     for run in runs:
-        if 'requires' in run:
+        if run["requires"] is not None:
             if not run["requires"] in ids:  # set(run["requires"]).issubset(ids):
-                raise ValidationError("error in run id{0}: the requires field id is not present")
-        else:
-            run['requires'] = None
+                raise ValidationError("error in run id {0}: the requires field id is not present".format(run["id"]))
 
     return runs
 
@@ -118,6 +190,8 @@ def _find_run_dependancies(runs):
     -------
 
     """
+    logging.info("resolving run dependencies")
+
     top_level = {}
 
     if not runs:
@@ -140,16 +214,26 @@ def _find_run_dependancies(runs):
         next_level = {}
         for run in remaining[:]:
             if run['requires'] in current_level:
-                current_level[run['requires']]['children'].append(run['id'])
+                current_level[run['requires']]['children'].append(run)
                 next_level[run['id']] = run
                 remaining.remove(run)
         current_level = next_level
 
     if remaining:
-        raise ValidationError('the runs have unresolved dependencies (see requires field): {}'.format(
+        raise ValidationError('the runs have unresolved dependencies, check requires field in runs: {}'.format(
             [r['id'] for r in remaining]))
 
-    return top_level
+    return list(top_level.values())
+
+
+def _get_config_dir(file_obj):
+    """get directory of config"""
+    if isinstance(file_obj, basestring):
+        return os.path.dirname(file_obj)
+    elif hasattr(file_obj, "parent"):
+        return file_obj.parent
+    else:
+        raise IOError("cannot get parent directory of file object")
 
 
 def runs_from_config(file_obj):
@@ -163,7 +247,8 @@ def runs_from_config(file_obj):
     -------
 
     """
+    filedir = _get_config_dir(file_obj)
     runs = _format_config_yaml(file_obj)
     top_level = _find_run_dependancies(runs)
 
-    return runs, top_level
+    return top_level, filedir

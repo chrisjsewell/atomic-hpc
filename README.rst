@@ -33,4 +33,6 @@ As outlined at: https://wiki.imperial.ac.uk/display/HPC/Python
 Example Use
 -----------
 
-
+Notes
+-----
+can't start field with *, since aleady used by yaml
