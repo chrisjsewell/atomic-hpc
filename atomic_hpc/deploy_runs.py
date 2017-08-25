@@ -6,7 +6,7 @@ import os
 import logging
 import re
 import shutil
-from subprocess import Popen, PIPE, STDOUT, SubprocessError
+from subprocess import Popen, PIPE, STDOUT, CalledProcessError
 
 _REGEX_VAR = r"(?:\@v\{[^}]+\})"
 _REGEX_FILE = r"(?:\@f\{[^}]+\})"
@@ -40,7 +40,7 @@ def _run_cmndline(cmnd, rid, raise_error=True):
         err_msg = "the following line in run {0} caused errorcode {1}: {2}".format(rid, exitcode, cmnd)
         logging.error(err_msg)
         if raise_error:
-            raise SubprocessError(err_msg)
+            raise CalledProcessError(err_msg)
 
 
 def _replace_in_cmnd(cmndline, variables, rid):
