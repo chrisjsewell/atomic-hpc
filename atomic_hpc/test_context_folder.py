@@ -10,8 +10,8 @@ def test_splitall():
 
 
 def test_consistent():
-    local = [m for m in inspect.getmembers(LocalPath, predicate=inspect.ismethod) if not m.startswith("_")]
-    remote = [m for m in inspect.getmembers(RemotePath, predicate=inspect.ismethod) if not m.startswith("_")]
+    local = [name for name, val in inspect.getmembers(LocalPath, predicate=inspect.ismethod) if not name.startswith("_")]
+    remote = [name for name, val in inspect.getmembers(RemotePath, predicate=inspect.ismethod) if not name.startswith("_")]
     assert sorted(local) == sorted(remote)
 
 
