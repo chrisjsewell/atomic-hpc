@@ -56,6 +56,9 @@ def config_qsub():
     file_obj = MockPath('test_tmp/config.yml', is_file=True,
                         content=example_file_qsub)
 
+    if os.path.exists('test_tmp'):
+        shutil.rmtree('test_tmp')
+    os.makedirs('test_tmp/input')
     yield runs_from_config(file_obj)
 
 
