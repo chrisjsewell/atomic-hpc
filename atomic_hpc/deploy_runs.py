@@ -6,41 +6,10 @@ import os
 import logging
 import re
 import shutil
-from subprocess import Popen, PIPE, STDOUT, CalledProcessError
+from atomic_hpc import context_folder
 
 _REGEX_VAR = r"(?:\@v\{[^}]+\})"
 _REGEX_FILE = r"(?:\@f\{[^}]+\})"
-
-
-class change_dir:
-    """Context manager for changing the current working directory"""
-
-    def __init__(self, new_path):
-        self.newPath = os.path.expanduser(os.path.abspath(str(new_path)))
-
-    def __enter__(self):
-        self.savedPath = os.getcwd()
-        os.chdir(self.newPath)
-
-    def __exit__(self, etype, value, traceback):
-        os.chdir(self.savedPath)
-
-
-def _run_cmndline(cmnd, rid, raise_error=True):
-    # subprocess.run(cmnd, shell=True, check=True)
-    def log_output(pipe):
-        for line in iter(pipe.readline, b''):
-            logging.info('{}'.format(line.decode("utf-8").strip()))
-
-    process = Popen(cmnd, stdout=PIPE, stderr=STDOUT, shell=True)
-    with process.stdout:
-        log_output(process.stdout)
-    exitcode = process.wait()  # 0 means success
-    if exitcode:
-        err_msg = "the following line in run {0} caused errorcode {1}: {2}".format(rid, exitcode, cmnd)
-        logging.error(err_msg)
-        if raise_error:
-            raise CalledProcessError(err_msg)
 
 
 def _replace_in_cmnd(cmndline, variables, rid):
@@ -63,17 +32,17 @@ def _replace_in_cmnd(cmndline, variables, rid):
             raise KeyError(var_error.format(id=rid, var_name=var, cmnd=cmndline))
         elif var not in variables:
             raise KeyError(var_error.format(id=rid, var_name=var, cmnd=cmndline))
-        script = script.replace(tag, variables[var])
+        cmndline = cmndline.replace(tag, variables[var])
     return cmndline
 
 
-def _create_scripts(run, config_path):
+def _create_scripts(run, contextpath):
     """
 
     Parameters
     ----------
     run: dict
-    config_path: str or path_like
+    contextpath: atomic_hpc.context_folder.VirtualDir
 
     Returns
     -------
@@ -85,43 +54,41 @@ def _create_scripts(run, config_path):
     outputs = []
 
     var_error = "error in run {id}: variable name; {var_name} not available to replace in script; {spath}"
-    file_error = "error in run {id}: path name; {path_name} not available to replace in script; {spath}"
+    file_error = "error in run {id}: _path name; {path_name} not available to replace in script; {spath}"
     file_exist_error = "error in run {id}: file path; {path} does not exist to replace in script; {spath}"
 
     for scriptdir in run["scripts"]:
 
-        with change_dir(config_path):
+        # create main script
+        if not contextpath.exists(scriptdir):
+            raise ValueError('script path does not exist')
+        scriptname = os.path.basename(scriptdir)
 
-            # create main script
-            if not os.path.exists(scriptdir):
-                raise ValueError('script path does not exist')
-            scriptname = os.path.basename(scriptdir)
+        with contextpath.open(scriptdir, 'r') as f:
+            script = f.read()
 
-            with open(scriptdir, 'r') as f:
-                script = f.read()
+        # insert variables
+        for tag in re.findall(_REGEX_VAR, script):
+            var = tag[3:-1]
+            if run["variables"] is None:
+                raise KeyError(var_error.format(id=run["id"], var_name=var, spath=scriptdir))
+            elif var not in run["variables"]:
+                raise KeyError(var_error.format(id=run["id"], var_name=var, spath=scriptdir))
+            script = script.replace(tag, run["variables"][var])
 
-            # insert variables
-            for tag in re.findall(_REGEX_VAR, script):
-                var = tag[3:-1]
-                if run["variables"] is None:
-                    raise KeyError(var_error.format(id=run["id"], var_name=var, spath=scriptdir))
-                elif var not in run["variables"]:
-                    raise KeyError(var_error.format(id=run["id"], var_name=var, spath=scriptdir))
-                script = script.replace(tag, run["variables"][var])
+        # insert file contents
+        for tag in re.findall(_REGEX_FILE, script):
+            var = tag[3:-1]
+            if run["files"] is None:
+                raise KeyError(file_error.format(id=run["id"], path_name=var, spath=scriptdir))
+            if var not in run["files"]:
+                raise KeyError(file_error.format(id=run["id"], path_name=var, spath=scriptdir))
+            if not contextpath.exists(run["files"][var]):
+                raise KeyError(file_exist_error.format(id=run["id"], path=run["files"][var], spath=scriptdir))
+            with contextpath.open(run["files"][var]) as f:
+                script = script.replace(tag, f.read())
 
-            # insert file contents
-            for tag in re.findall(_REGEX_FILE, script):
-                var = tag[3:-1]
-                if run["files"] is None:
-                    raise KeyError(file_error.format(id=run["id"], path_name=var, spath=scriptdir))
-                if var not in run["files"]:
-                    raise KeyError(file_error.format(id=run["id"], path_name=var, spath=scriptdir))
-                if not os.path.exists(run["files"][var]):
-                    raise KeyError(file_exist_error.format(id=run["id"], path=run["files"][var], spath=scriptdir))
-                with open(run["files"][var]) as f:
-                    script = script.replace(tag, f.read())
-
-            outputs.append((scriptname, script))
+        outputs.append((scriptname, script))
 
     return outputs
 
@@ -144,7 +111,7 @@ export NCORES={ncores}
 # number of processes
 export NPROCESSES={nprocs}
 
-# Make sure any symbolic links are resolved to absolute path
+# Make sure any symbolic links are resolved to absolute _path
 export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
 
 # Set the number of threads to 1
@@ -228,9 +195,9 @@ def deploy_runs(top_level_runs, config_path, exists_error=False, separate_dir=Fa
     top_level_runs: list
         top level runs
     config_path: str or path_like
-        the path of the config file
+        the _path of the config file
     exists_error: bool
-        if True, raise an IOError if the output path already exists
+        if True, raise an IOError if the output _path already exists
     separate_dir: bool
         for local:
         if True and parent_dir is not None, the run will take place in the parent_dir
@@ -258,7 +225,7 @@ def deploy_run_local(run, config_path, exists_error=False, parent_dir=None, sepa
     config_path: str or path_like
         the path of the config file
     exists_error: bool
-        if True, raise an IOError if the output path already exists
+        if True, raise an IOError if the output _path already exists
     parent_dir: str or None
         the parent output directory (if dependant on another run's output)
     separate_dir: bool
@@ -271,69 +238,69 @@ def deploy_run_local(run, config_path, exists_error=False, parent_dir=None, sepa
     """
     logging.info("deploying run locally: {0}: {1}".format(run["id"], run["name"]))
 
+    with context_folder.change_dir(config_path) as configdir:
 
-    # collect files
-    with change_dir(config_path):
+        # collect files
         if run["files"] is not None:
             for path in run["files"].values():
-                if not os.path.exists(path):
+                if not configdir.exists(path):
                     raise IOError("run {0} files path does not exist: {1}".format(run["id"], path))
-    scripts = _create_scripts(run, config_path)
-    cmnds = [_replace_in_cmnd(cmnd, run["variables"], run["id"]) for cmnd in run["local"]["run"]]
+        scripts = _create_scripts(run, configdir)
+        cmnds = [_replace_in_cmnd(cmnd, run["variables"], run["id"]) for cmnd in run["local"]["run"]]
 
-    # populate output directory
-    with change_dir(config_path):
+        # populate output directory
 
         # create output folder
         if parent_dir is None or separate_dir:
             outdir = os.path.join(run["outpath"], "{0}_{1}".format(run["id"], run["name"]))
-            outdir = os.path.abspath(outdir)
-            if os.path.exists(outdir):
+            if configdir.exists(outdir):
                 if exists_error:
-                    raise IOError("output dir already exisit: {}".format(outdir))
+                    raise IOError("output dir already exists: {}".format(outdir))
                 logging.info("removing existing output: {}".format(outdir))
-                shutil.rmtree(outdir)
-            if parent_dir is not None:
-                shutil.copytree(parent_dir, outdir)
+                configdir.rmtree(outdir)
             else:
-                os.makedirs(outdir)
+                configdir.makedirs(outdir)
+            if parent_dir is not None:
+                for content in configdir.glob(os.path.join(parent_dir, "*")):
+                    configdir.copy(content, outdir)
         else:
             outdir = parent_dir
 
         if run["files"] is not None:
-            for path in run["files"].values():
-                fname = os.path.basename(path)
-                shutil.copy(path, os.path.join(outdir, fname))
+            for fpath in run["files"].values():
+                configdir.copy(fpath, outdir)
         for scriptname, script in scripts:
-            with open(os.path.join(outdir, scriptname), 'w') as f:
+            with configdir.open(os.path.join(outdir, scriptname), 'w') as f:
                 f.write(script)
 
-    # run commands
-    with change_dir(outdir):
+        # run commands
         for cmndline in cmnds:
-            _run_cmndline(cmndline, run["id"])
+            configdir.exec_cmnd(cmndline, outdir) # TODO report run["id"] where it failed
 
         # cleanup output
         if run["cleanup"]["remove"] is not None:
             for path in run["cleanup"]["remove"]:
-                if os.path.exists(path):
-                    if os.path.isdir(path):
-                        logging.debug("removing {0} from output".format(path))
-                        shutil.rmtree(path)
+                rmpath = os.path.join(outdir, path)
+                if configdir.exists(rmpath):
+                    logging.debug("removing {0} from output".format(rmpath))
+                    if configdir.isdir(rmpath):
+                        configdir.rmtree(rmpath)
                     else:
-                        os.remove(path)
-                for gpath in glob.glob("*{}".format(path)):
+                        configdir.remove(rmpath)
+                for gpath in configdir.glob("*{}".format(rmpath)):
                     logging.debug("removing {0} from output".format(gpath))
-                    os.remove(gpath)
+                    configdir.remove(gpath)
 
         if run["cleanup"]["aliases"] is not None:
             for old, new in run["cleanup"]["aliases"].items():
-                for path in glob.glob("*{}".format(old)):
-                    logging.debug("renaming {0} to {1}".format(path, path[:-(len(old))]+new))
-                    os.rename(path, path[:-(len(old))]+new)
+                renamedir = os.path.join(outdir, "*{}".format(old))
+                for path in configdir.glob(renamedir):
+                    newname = path.name[:-len(old)] + new
+                    logging.debug("renaming {0} to {1}".format(path, newname))
+                    configdir.rename(path, newname)
 
     for child_run in run["children"]:
-        deploy_run_local(child_run, config_path, parent_dir=outdir, separate_dir=separate_dir)
+        deploy_run_local(child_run, config_path, exists_error=exists_error, parent_dir=outdir, separate_dir=separate_dir)
 
 
 def deploy_run_qsub(run, config_path):
@@ -344,12 +311,13 @@ def deploy_run_qsub(run, config_path):
     run: dict
         top level run
     config_path: str or path_like
-        the path of the config file
+        the _path of the config file
 
     Returns
     -------
 
     """
+    raise NotImplementedError
     logging.info("deploying run: {}".format(run["name"]))
 
     # collect files
@@ -366,9 +334,26 @@ def deploy_run_qsub(run, config_path):
             os.makedirs(outdir)
 
 
-        # with open(os.path.join(outdir, scriptname), 'w') as f:
+        # with open(os._path.join(outdir, scriptname), 'w') as f:
         #     f.write(script)
         with open(os.path.join(outdir, "run.qsub"), 'w') as f:
             f.write(qsub)
 
+    def _connect_ssh(ssh_server, ssh_username, ssh_passwrd):
+        """ connect and verify ssh connection """
+
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            ssh.connect(ssh_server, username=ssh_username, password=ssh_passwrd)
+        except socket.error as e:
+            raise IOError(
+                'could not connect to the ssh server: \n {0} \n {1}'.format(ssh_server, e))
+        except paramiko.ssh_exception.AuthenticationException as e:
+            raise IOError(
+                'username or password authentication error \n {0}'.format(e))
+        except Exception as e:
+            raise IOError('error connecting to server: \n {0}'.format(e))
+
+        return ssh
 

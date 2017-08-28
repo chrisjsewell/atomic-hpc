@@ -226,14 +226,14 @@ def _find_run_dependancies(runs):
     return list(top_level.values())
 
 
-def _get_config_dir(file_obj):
-    """get directory of config"""
-    if isinstance(file_obj, basestring):
-        return os.path.dirname(file_obj)
-    elif hasattr(file_obj, "parent"):
-        return file_obj.parent
-    else:
-        raise IOError("cannot get parent directory of file object")
+# def _get_config_dir(file_obj):
+#     """get directory of config"""
+#     if hasattr(file_obj, "parent"):
+#         return file_obj.parent
+#     elif isinstance(file_obj, basestring):
+#         return os.path.dirname(file_obj)
+#     else:
+#         raise IOError("cannot get parent directory of file object")
 
 
 def runs_from_config(file_obj):
@@ -247,8 +247,8 @@ def runs_from_config(file_obj):
     -------
 
     """
-    filedir = _get_config_dir(file_obj)
+    # filedir = _get_config_dir(file_obj)
     runs = _format_config_yaml(file_obj)
     top_level = _find_run_dependancies(runs)
 
-    return top_level, filedir
+    return top_level

@@ -14,15 +14,15 @@ example_file_maximal = """
 defaults:
     description: quantum-espresso run
     scripts:
-        - path/to/script1.in
-        - path/to/script2.in
+        - _path/to/script1.in
+        - _path/to/script2.in
     variables:
         var1: value
         var2: value
         nprocs: 2
     files:
-        file1: path/to/file1
-    outpath: path/to/top/level/output  
+        file1: _path/to/file1
+    outpath: _path/to/top/level/output  
     environment: qsub
     local:  
         run:
@@ -58,8 +58,8 @@ runs:
   - id: 2
     name: run2
     scripts: 
-        - path/to/other/script1.in
-        - path/to/script2.in
+        - _path/to/other/script1.in
+        - _path/to/script2.in
     variables:
         var2: overridevalue
     requires: 1
@@ -71,11 +71,11 @@ example_output = [
         "description": "quantum-espresso run",
         "requires": None,
         "scripts": [
-            "path/to/script1.in",
-            "path/to/script2.in"
+            "_path/to/script1.in",
+            "_path/to/script2.in"
         ],
         "files": {
-            "file1": "path/to/file1"
+            "file1": "_path/to/file1"
         },
         "variables": {
             "var1": "overridevalue",
@@ -90,7 +90,7 @@ example_output = [
                 "tmp/"
             ]
         },
-        "outpath": "path/to/top/level/output",
+        "outpath": "_path/to/top/level/output",
         "environment": "qsub",
         "qsub": {
             "cores_per_node": 16,
@@ -126,11 +126,11 @@ example_output = [
         "description": "quantum-espresso run",
         "requires": 1,
         "scripts": [
-            "path/to/other/script1.in",
-            "path/to/script2.in"
+            "_path/to/other/script1.in",
+            "_path/to/script2.in"
         ],
         "files": {
-            "file1": "path/to/file1"
+            "file1": "_path/to/file1"
         },
         "variables": {
             "var1": "value",
@@ -145,7 +145,7 @@ example_output = [
                 "tmp/"
             ]
         },
-        "outpath": "path/to/top/level/output",
+        "outpath": "_path/to/top/level/output",
         "environment": "qsub",
         "qsub": {
             "cores_per_node": 16,
@@ -239,4 +239,6 @@ def test_find_dependencies():
 def test_runs_from_config():
     file_obj = utils.MockPath('config.yml', is_file=True,
                               content=example_file_minimal)
-    assert len(runs_from_config(file_obj)) == 2
+    assert len(runs_from_config(file_obj)) == 1
+    assert hasattr(runs_from_config(file_obj)[0], 'keys')
+    assert runs_from_config(file_obj)[0]["name"] == "run1"
