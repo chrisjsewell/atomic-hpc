@@ -1,3 +1,4 @@
 ruamel.yaml
 jsonextended>=0.5.0
 jsonschema
+paramiko
