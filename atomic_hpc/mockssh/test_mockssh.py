@@ -20,7 +20,7 @@ def server():
     os.mkdir(test_folder)
 
     users = {
-        "user_key_path": {"private_key_path": "/tmp/test_rsa.key"},
+        "user_key_path": {"private_key_path": os.path.join(os.path.dirname(__file__), 'sample-user-key')},
         "user_password": {"password": "password"}
     }
     with mockserver.Server(users, test_folder) as s:
