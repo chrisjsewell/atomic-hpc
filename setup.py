@@ -47,7 +47,13 @@ with io.open('README.rst') as readme:
         ],
         keywords='json, units, parser, python',
         zip_safe=True,
-        packages=find_packages(),
-        package_data={'': []},
+        package_data={
+            "mockssh": [
+                "sample-user-key",
+                "sample-user-key.pub",
+                "server-key",
+                "server-key.pub",
+            ]
+        },
         scripts=['bin/run_config'],
     )
