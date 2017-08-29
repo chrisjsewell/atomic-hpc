@@ -1,5 +1,11 @@
 import os
 import shutil
+import logging
+# logging.basicConfig(level=logging.DEBUG,
+# format="%(asctime)s %(threadName)s %(name)s %(message)s")
+
+import paramiko
+
 from atomic_hpc.mockssh import mockserver
 import pytest
 
@@ -27,11 +33,67 @@ def server():
             yield s
 
 
+def test_invalid_user(server):
+    with pytest.raises(KeyError) as exc:
+        server.client("unknown-user")
+    assert exc.value.args[0] == "unknown-user"
+
+
+def test_connect(server):
+    c = paramiko.SSHClient()
+    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    with pytest.raises(Exception):
+        c.connect(hostname="wrong_hostname",
+                  port=server.port,
+                  username="user_password",
+                  password="password",
+                  allow_agent=False,
+                  look_for_keys=False)
+
+    with pytest.raises(paramiko.ssh_exception.AuthenticationException):
+        c.connect(hostname=server.host,
+                  port=server.port,
+                  username="user_password",
+                  password="wrong_password",
+                  allow_agent=False,
+                  look_for_keys=False)
+
+    # should really raise paramiko.ssh_exception.AuthenticationException but doesn't
+    # looks related to paramiko/paramiko#387
+    with pytest.raises(Exception):
+        c.connect(hostname=server.host,
+                  port=server.port,
+                  username="user_key_path",
+                  key_filename=os.path.join(os.path.dirname(__file__), 'wrong-user-key'),
+                  allow_agent=False,
+                  look_for_keys=False)
+
+    c.connect(hostname=server.host,
+              port=server.port,
+              username="user_password",
+              password="password",
+              allow_agent=False,
+              look_for_keys=False)
+    c.close()
+
+    c.connect(hostname=server.host,
+              port=server.port,
+              username="user_key_path",
+              key_filename=os.path.join(os.path.dirname(__file__), 'sample-user-key'),
+              allow_agent=False,
+              look_for_keys=False)
+    c.close()
+
+
 @pytest.mark.parametrize("uid", ["user_key_path", "user_password"])
 def test_ssh_session(server, uid):
     with server.client(uid) as c:
         _, stdout, _ = c.exec_command("ls")
         assert stdout.read().decode() == ""
+
+        _, stdout, _ = c.exec_command("echo hallo")
+        assert stdout.read().decode().strip() == "hallo"
 
 
 @pytest.mark.parametrize("uid", ["user_key_path", "user_password"])
