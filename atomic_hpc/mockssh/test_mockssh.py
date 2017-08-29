@@ -110,6 +110,15 @@ def test_sftp_session(server, uid):
         with pytest.raises(IOError):
             sftp.mkdir("other")
         assert sorted(sftp.listdir()) == ['other', 'test.txt']
+
+        # the actual ssh client does not change its directory inline with the sftp client
+        # so exec commands will always run from the initial root directory
+        _, stdout, _ = c.exec_command("ls")
+        assert stdout.read().decode().strip().split() == ["folder"]
+        # to change folder we must use an initial change dir command
+        _, stdout, _ = c.exec_command("cd folder; ls")
+        assert sorted(stdout.read().decode().strip().split()) == ['other', 'test.txt']
+
         sftp.unlink("test.txt")
         assert sftp.listdir() == ['other']
         sftp.rmdir("other")

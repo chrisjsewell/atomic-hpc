@@ -10,6 +10,7 @@ The following changes have also been made:
 - revised `users` parameter, such that either a private_path_key or password can be used
 - added a `dirname` parameter to the `Server` context manager, such that the this will be set as the root path
   for the duration of the context.
-- patched `paramiko.sftp_client.SFTPClient.chdir` to fix its use with relative paths.
+- patched `paramiko.sftp_client.SFTPClient.chdir` to fix its use with relative paths 
+  (I have checked that this works fine when connecting to a real remote host)
 
 See test_mockssh.py for example use. 
