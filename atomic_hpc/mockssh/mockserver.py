@@ -159,6 +159,7 @@ class Server(object):
         self._users = {}
         for uid, login in users.items():
             self.add_user(uid, login)
+        self._patcher = mock.patch("paramiko.sftp_client.SFTPClient.chdir", new=patch_chdir)
 
     def add_user(self, uid, login):
         """
@@ -184,12 +185,13 @@ class Server(object):
         self._socket = s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind((self.host, 0))
         s.listen(5)
+        self._patcher.start()
         self._thread = t = threading.Thread(target=self._run)
         t.setDaemon(True)
         t.start()
         return self
 
-    @mock.patch("paramiko.sftp_client.SFTPClient.chdir", new=patch_chdir)
+
     def _run(self):
         sock = self._socket
         while sock.fileno() > 0:
@@ -205,6 +207,7 @@ class Server(object):
 
     def __exit__(self, *exc_info):
         os.chdir(self._cwd)
+        self._patcher.stop()
         try:
             self._socket.shutdown(socket.SHUT_RDWR)
             self._socket.close()

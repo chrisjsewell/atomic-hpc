@@ -47,7 +47,7 @@ def test_sftp_session(server, uid):
         sftp.mkdir("other")
         with pytest.raises(IOError):
             sftp.mkdir("other")
-        assert sftp.listdir() == ['other', 'test.txt']
+        assert sorted(sftp.listdir()) == ['other', 'test.txt']
         sftp.unlink("test.txt")
         assert sftp.listdir() == ['other']
         sftp.rmdir("other")
