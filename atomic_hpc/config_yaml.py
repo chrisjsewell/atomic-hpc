@@ -9,11 +9,14 @@ try:
     basestring
 except NameError:
     basestring = str
+try:
+    import pathlib
+except ImportError:
+    import pathlib2 as pathlib
 
-# TODO split local into darwin, windows, linux
-# TODO have (global) pre run commands
 
 _config_schema = {
+    "description": "config schema",
     "type": "object",
     "required": ['runs'],
     "properties": {
@@ -23,16 +26,17 @@ _config_schema = {
     }
 }
 
-_qsub_schema = {
+_process_qsub_schema = {
     "type": "object",
     "required": ["nnodes", "cores_per_node", "walltime", "queue", "modules",
-                 "before_run", "run", "from_temp", "after_run"],
+                 "before_run", "run", "from_temp", "after_run", "jobname"],
     "properties": {
 
         "cores_per_node": {"type": "integer"},
         "nnodes": {"type": "integer"},
         "walltime": {"type": "string", "format": "date-time"},
         "queue": {"type": ["string", "null"]},
+        "jobname": {"type": ["string", "null"]},
         "email": {"type": "boolean"},
         "modules": {"type": ["array", "null"], "items": {"type": "string"}},
 
@@ -44,84 +48,133 @@ _qsub_schema = {
     "additionalProperties": False,
 
 }
-_local_schema = {
+
+_process_local_schema = {
     "type": "object",
     "required": ["run"],
     "properties": {
-
-        #        "nprocs": {"type": "integer"},
         "run": {"type": ["array", "null"], "items": {"type": "string"}},
-
     },
     "additionalProperties": False,
 
 }
 
+_remote_schema = {
+    "type": ["object", "null"],
+    "required": ["hostname", "port", "username", "password", "pkey", "key_filename", "timeout"],
+    "additionalProperties": False,
+    "properties": {
+        "hostname": {"type": ["string", "null"]},
+        "port": {"type": "integer"},
+        "username": {"type": ["string", "null"]},
+        "password": {"type": ["string", "null"]},
+        "pkey": {"type": ["string", "null"]},
+        "key_filename": {"type": ["string", "null"]},
+        "timeout": {"type": ["integer", "null"]},
+    }
+}
+
 _run_schema = {
     "type": "object",
-    "required": ["id", "name", "description", "requires", "scripts", "files", "variables", "cleanup",
-                 "outpath", "environment"],
+    "required": ["id", "name", "description", "requires", "environment", "input", "output", "process"],
     "properties": {
 
         "id": {"type": "integer"},
         "name": {"type": "string"},
         "description": {"type": "string"},
         "requires": {"type": ["integer", "null"]},
+        "environment": {"type": "string", "oneOf": [{"pattern": "qsub"}, {"pattern": "unix"}, {"pattern": "windows"}]},
 
-        "scripts": {"type": ["array", "null"], "items": {"type": "string"}},
-        "files": {"type": ["object", "null"], "patternProperties": {'.+': {"type": "string"}}},
-        "variables": {"type": ["object", "null"]},
+        "input": {"type": ["object", "null"],
+                  "required": ["remote", "path", "scripts", "files", "variables"],
+                  "additionalProperties": False,
+                  "properties": {
+                        "remote": _remote_schema,
+                        "path": {"type": ["string", "null"]},
+                        "scripts": {"type": ["array", "null"], "items": {"type": "string"}},
+                        "files": {"type": ["object", "null"], "patternProperties": {'.+': {"type": "string"}}},
+                        "variables": {"type": ["object", "null"]},
+                  }},
 
-        "outpath": {"type": "string"},
-        "cleanup": {"type": "object", "required": ["remove", "aliases"],
-                    "properties": {
-                        "remove":  {"type": ["array", "null"], "items": {"type": "string"}},
-                        "aliases": {"type": ["object", "null"], "patternProperties": {'.+': {"type": "string"}}}
+        "output": {"type": "object",
+                   "required": ["remote", "path", "remove", "rename"],
+                   "additionalProperties": False,
+                   "properties": {
+                       "remote": _remote_schema,
+                       "path": {"type": ["string", "null"]},
+                       "remove":  {"type": ["array", "null"], "items": {"type": "string"}},
+                       "rename": {"type": ["object", "null"], "patternProperties": {'.+': {"type": "string"}}}
                         },
-                    "additionalProperties": False,
-                    },
-        "environment": {"type": "string", "oneOf": [{"pattern": "qsub"}, {"pattern": "local"}]},
+                   },
 
-        "qsub": _qsub_schema,
-        "local": _local_schema,
+        "process": {"type": "object",
+                    "required": ["qsub", "unix", "windows"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "qsub": _process_qsub_schema,
+                        "unix": _process_local_schema,
+                        "windows": _process_local_schema}
+                    },
     },
     "additionalProperties": False,
 
 }
 
-
 _global_defaults = {
     "description": "",
     "requires": None,
+    "environment": "unix",
 
-    "scripts": None,
-    "files": None,
-    "variables": None,
-
-    "outpath": "output",
-    "cleanup": {"remove": None, "aliases": None},
-
-    "environment": "local",
-
-    "local": {
-        #        "nprocs": 1,
-        "run": None
+    "input": {
+        "path": None,
+        "scripts": None,
+        "files": None,
+        "variables": None,
+        "remote": {
+            "hostname": None,
+            "port": 22,
+            "username": None,
+            "password": None,
+            "pkey": None,
+            "key_filename": None,
+            "timeout": None,
+        },
     },
 
-    "qsub": {
-        "cores_per_node": 16,
-        "nnodes": 1,
-        "walltime": "24:00:00",
-        "queue": None,
-        "email": True,
-        "modules": None,
+    "output": {
+        "remote": None,
+        "path": "output",
+        "remove": None,
+        "rename": None,
+        "remote": {
+            "hostname": None,
+            "port": 22,
+            "username": None,
+            "password": None,
+            "pkey": None,
+            "key_filename": None,
+            "timeout": None,
+        },
+    },
 
-        "before_run": None,
-        "run": None,
-        "from_temp": None,
-        "after_run": None,
+    "process": {
+        "unix": {"run": None},
+        "windows": {"run": None},
+        "qsub": {
+            "jobname": None,
+            "cores_per_node": 16,
+            "nnodes": 1,
+            "walltime": "24:00:00",
+            "queue": None,
+            "email": True,
+            "modules": None,
+
+            "before_run": None,
+            "run": None,
+            "from_temp": None,
+            "after_run": None,
+        },
     }
-
 }
 
 
@@ -149,19 +202,18 @@ def _format_config_yaml(file_obj):
         except ValidationError as err:
             raise ValidationError("error in run #{0} config:\n{1}".format(i + 1, err))
 
-        # rtype = new_run["environment"]
-        # if rtype == "local":
-        #     new_run.pop("qsub")
-        #     try:
-        #         validate(new_run['local'], _local_schema)
-        #     except ValidationError as err:
-        #         raise ValidationError("error in run #{0} local environment config:\n{1}".format(i + 1, err))
-        # else:
-        #     new_run.pop("local")
-        #     try:
-        #         validate(new_run['qsub'], _qsub_schema)
-        #     except ValidationError as err:
-        #         raise ValidationError("error in run #{0} qsub environment config:\n{1}".format(i + 1, err))
+        if new_run["input"] is not None:
+            all_none = True
+            if new_run["input"]["remote"]["hostname"] is None:
+                new_run["input"]["remote"] = None
+            for field in ["remote", "path", "scripts", "files", "variables"]:
+                if new_run["input"][field] is not None:
+                    all_none = False
+            if all_none:
+                new_run["input"] = None
+
+        if new_run["output"]["remote"]["hostname"] is None:
+            new_run["output"]["remote"] = None
 
         runs.append(new_run)
 
@@ -241,12 +293,15 @@ def runs_from_config(file_obj):
 
     Parameters
     ----------
-    file_obj : file_like
+    file_obj : str or file_like
 
     Returns
     -------
 
     """
+    if isinstance(file_obj, basestring):
+        file_obj = pathlib.Path(file_obj)
+
     # filedir = _get_config_dir(file_obj)
     runs = _format_config_yaml(file_obj)
     top_level = _find_run_dependancies(runs)

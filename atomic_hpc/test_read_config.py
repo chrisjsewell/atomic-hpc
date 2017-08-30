@@ -10,114 +10,192 @@ runs:
     name: run1
 """
 
+expected_output_minimal = [
+    {
+        "description": "",
+        "requires": None,
+        "environment": "unix",
+        "input": None,
+        "output": {
+            "remote": None,
+            "path": "output",
+            "remove": None,
+            "rename": None
+        },
+        "process": {
+            "unix": {
+                "run": None
+            },
+            "windows": {
+                "run": None
+            },
+            "qsub": {
+                "jobname": None,
+                "cores_per_node": 16,
+                "nnodes": 1,
+                "walltime": "24:00:00",
+                "queue": None,
+                "email": True,
+                "modules": None,
+                "before_run": None,
+                "run": None,
+                "from_temp": None,
+                "after_run": None
+            }
+        },
+        "id": 1,
+        "name": "run1"
+    }
+]
+
 example_file_maximal = """
 defaults:
     description: quantum-espresso run
-    scripts:
-        - _path/to/script1.in
-        - _path/to/script2.in
-    variables:
-        var1: value
-        var2: value
-        nprocs: 2
-    files:
-        file1: _path/to/file1
-    outpath: _path/to/top/level/output  
     environment: qsub
-    local:  
-        run:
-            - mpirun -np @v{nprocs} pw.x -i script1.in > main.qe.scf.out
-    qsub:
-        cores_per_node: 16  
-        nnodes: 1     
-        walltime: 1:00:00
-        queue: queue_name
-        email: true
-        modules:
-            - quantum-espresso
-            - intel-suite
-            - mpi
-        before_run:
-            - ./script1.in
-        run: 
-            - mpiexec pw.x -i script2.in > main.qe.scf.out  
-        from_temp:
-            - .other.out
-        after_run:
-    cleanup:
+
+    input:
+        remote:
+            hostname: login.cx1.hpc.imperial.ac.uk
+            username: cjs14
+        variables:
+            var1: value
+            var2: value
+            nprocs: 2
+        files:
+            file1: path/to/file1
+        scripts:
+        - path/to/script1.in
+        - path/to/script2.in
+
+    output:
+        remote:
+            hostname: login.cx1.hpc.imperial.ac.uk
+            username: cjs14
+        path: path/to/top/level/output 
         remove:
             - tmp/
-        aliases:
+        rename:
             .other.out: .other.qe.out
+    
+    process:
+        unix:
+            run:
+                - mpirun -np @v{nprocs} pw.x -i script1.in > main.qe.scf.out
+        qsub:
+            cores_per_node: 16  
+            nnodes: 1     
+            walltime: 1:00:00
+            queue: queue_name
+            email: true
+            modules:
+                - quantum-espresso
+                - intel-suite
+                - mpi
+            before_run:
+                - ./script1.in
+            run: 
+                - mpiexec pw.x -i script2.in > main.qe.scf.out  
+            from_temp:
+                - .other.out
+            after_run:
 
 runs:
   - id: 1
     name: run1
-    variables:
-        var1: overridevalue
+    input:
+        variables:
+            var1: overridevalue
   - id: 2
     name: run2
-    scripts: 
-        - _path/to/other/script1.in
-        - _path/to/script2.in
-    variables:
-        var2: overridevalue
+    input:
+        scripts: 
+            - path/to/other/script1.in
+            - path/to/script2.in
+        variables:
+            var2: overridevalue
     requires: 1
 
 """
 
-example_output = [
+expected_output_maximal = [
     {
         "description": "quantum-espresso run",
         "requires": None,
-        "scripts": [
-            "_path/to/script1.in",
-            "_path/to/script2.in"
-        ],
-        "files": {
-            "file1": "_path/to/file1"
-        },
-        "variables": {
-            "var1": "overridevalue",
-            "var2": "value",
-            "nprocs": 2
-        },
-        "cleanup": {
-            "aliases": {
-                ".other.out": ".other.qe.out"
+        "environment": "qsub",
+        "input": {
+            "path": None,
+            "scripts": [
+                "path/to/script1.in",
+                "path/to/script2.in"
+            ],
+            "files": {
+                "file1": "path/to/file1"
             },
+            "variables": {
+                "var1": "overridevalue",
+                "var2": "value",
+                "nprocs": 2
+            },
+            "remote": {
+                "hostname": "login.cx1.hpc.imperial.ac.uk",
+                "port": 22,
+                "username": "cjs14",
+                "password": None,
+                "pkey": None,
+                "key_filename": None,
+                "timeout": None
+            }
+        },
+        "output": {
+            "remote": {
+                "hostname": "login.cx1.hpc.imperial.ac.uk",
+                "port": 22,
+                "username": "cjs14",
+                "password": None,
+                "pkey": None,
+                "key_filename": None,
+                "timeout": None
+            },
+            "path": "path/to/top/level/output",
             "remove": [
                 "tmp/"
-            ]
+            ],
+            "rename": {
+                ".other.out": ".other.qe.out"
+            }
         },
-        "outpath": "_path/to/top/level/output",
-        "environment": "qsub",
-        "qsub": {
-            "cores_per_node": 16,
-            "nnodes": 1,
-            "walltime": "1:00:00",
-            "queue": "queue_name",
-            "email": True,
-            "modules": [
-                "quantum-espresso",
-                "intel-suite",
-                "mpi"
-            ],
-            "before_run": [
-                "./script1.in"
-            ],
-            "run": [
-                "mpiexec pw.x -i script2.in > main.qe.scf.out"
-            ],
-            "from_temp": [
-                ".other.out"
-            ],
-            "after_run": None
-        },
-        "local": {
-            "run": [
-                "mpirun -np @v{nprocs} pw.x -i script1.in > main.qe.scf.out"
-            ]
+        "process": {
+            "unix": {
+                "run": [
+                    "mpirun -np @v{nprocs} pw.x -i script1.in > main.qe.scf.out"
+                ]
+            },
+            "windows": {
+                "run": None
+            },
+            "qsub": {
+                "jobname": None,
+                "cores_per_node": 16,
+                "nnodes": 1,
+                "walltime": "1:00:00",
+                "queue": "queue_name",
+                "email": True,
+                "modules": [
+                    "quantum-espresso",
+                    "intel-suite",
+                    "mpi"
+                ],
+                "before_run": [
+                    "./script1.in"
+                ],
+                "run": [
+                    "mpiexec pw.x -i script2.in > main.qe.scf.out"
+                ],
+                "from_temp": [
+                    ".other.out"
+                ],
+                "after_run": None
+            }
         },
         "id": 1,
         "name": "run1"
@@ -125,54 +203,81 @@ example_output = [
     {
         "description": "quantum-espresso run",
         "requires": 1,
-        "scripts": [
-            "_path/to/other/script1.in",
-            "_path/to/script2.in"
-        ],
-        "files": {
-            "file1": "_path/to/file1"
-        },
-        "variables": {
-            "var1": "value",
-            "var2": "overridevalue",
-            "nprocs": 2
-        },
-        "cleanup": {
-            "aliases": {
-                ".other.out": ".other.qe.out"
+        "environment": "qsub",
+        "input": {
+            "path": None,
+            "scripts": [
+                "path/to/other/script1.in",
+                "path/to/script2.in"
+            ],
+            "files": {
+                "file1": "path/to/file1"
             },
+            "variables": {
+                "var1": "value",
+                "var2": "overridevalue",
+                "nprocs": 2
+            },
+            "remote": {
+                "hostname": "login.cx1.hpc.imperial.ac.uk",
+                "port": 22,
+                "username": "cjs14",
+                "password": None,
+                "pkey": None,
+                "key_filename": None,
+                "timeout": None
+            }
+        },
+        "output": {
+            "remote": {
+                "hostname": "login.cx1.hpc.imperial.ac.uk",
+                "port": 22,
+                "username": "cjs14",
+                "password": None,
+                "pkey": None,
+                "key_filename": None,
+                "timeout": None
+            },
+            "path": "path/to/top/level/output",
             "remove": [
                 "tmp/"
-            ]
+            ],
+            "rename": {
+                ".other.out": ".other.qe.out"
+            }
         },
-        "outpath": "_path/to/top/level/output",
-        "environment": "qsub",
-        "qsub": {
-            "cores_per_node": 16,
-            "nnodes": 1,
-            "walltime": "1:00:00",
-            "queue": "queue_name",
-            "email": True,
-            "modules": [
-                "quantum-espresso",
-                "intel-suite",
-                "mpi"
-            ],
-            "before_run": [
-                "./script1.in"
-            ],
-            "run": [
-                "mpiexec pw.x -i script2.in > main.qe.scf.out"
-            ],
-            "from_temp": [
-                ".other.out"
-            ],
-            "after_run": None
-        },
-        "local": {
-            "run": [
-                "mpirun -np @v{nprocs} pw.x -i script1.in > main.qe.scf.out"
-            ]
+        "process": {
+            "unix": {
+                "run": [
+                    "mpirun -np @v{nprocs} pw.x -i script1.in > main.qe.scf.out"
+                ]
+            },
+            "windows": {
+                "run": None
+            },
+            "qsub": {
+                "jobname": None,
+                "cores_per_node": 16,
+                "nnodes": 1,
+                "walltime": "1:00:00",
+                "queue": "queue_name",
+                "email": True,
+                "modules": [
+                    "quantum-espresso",
+                    "intel-suite",
+                    "mpi"
+                ],
+                "before_run": [
+                    "./script1.in"
+                ],
+                "run": [
+                    "mpiexec pw.x -i script2.in > main.qe.scf.out"
+                ],
+                "from_temp": [
+                    ".other.out"
+                ],
+                "after_run": None
+            }
         },
         "id": 2,
         "name": "run2"
@@ -183,7 +288,11 @@ example_output = [
 def test_format_minimal():
     file_obj = utils.MockPath('config.yml', is_file=True,
                               content=example_file_minimal)
-    _format_config_yaml(file_obj)
+    output = _format_config_yaml(file_obj)
+    # handy for updating
+    # import json
+    # print(json.dumps(output, indent=4))
+    assert edict.diff(output, expected_output_minimal) == {}
 
 
 def test_format_maximal():
@@ -193,7 +302,7 @@ def test_format_maximal():
     # handy for updating
     # import json
     # print(json.dumps(output, indent=4))
-    assert edict.diff(output, example_output) == {}
+    assert edict.diff(output, expected_output_maximal) == {}
 
 
 def test_find_dependencies():

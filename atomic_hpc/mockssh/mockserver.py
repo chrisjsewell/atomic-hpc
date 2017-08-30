@@ -26,7 +26,16 @@ import select
 import socket
 import subprocess
 import threading
+import stat
+import errno
+from paramiko.py3compat import b
+from paramiko.sftp import SFTPError
 
+# python 2/3 compatibility
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 try:
     from queue import Queue
 except ImportError:  # Python 2.7
@@ -127,15 +136,6 @@ class Handler(paramiko.ServerInterface):
 
     def get_allowed_auths(self, username):
         return "publickey,password"
-
-try:
-    from unittest import mock
-except:
-    import mock
-import stat
-import errno
-from paramiko.py3compat import b
-from paramiko.sftp import SFTPError
 
 
 def patch_chdir(self, path=None):

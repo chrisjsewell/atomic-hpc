@@ -42,9 +42,24 @@ def splitall(path):
 
 
 class VirtualDir(object):
-    """ a virtual directory with implementation agnostic methods
+    """ the abstract class for a virtual directory with implementation agnostic methods
 
     """
+
+    @staticmethod
+    def name(path):
+        """
+
+        Parameters
+        ----------
+        path: str
+
+        Returns
+        -------
+
+        """
+        return os.path.basename(str(path))
+
     def exists(self, path):
         """
 
@@ -80,6 +95,20 @@ class VirtualDir(object):
 
         Returns
         -------
+
+        """
+        raise NotImplementedError
+
+    def getabs(self, path):
+        """
+
+        Parameters
+        ----------
+        path: str
+
+        Returns
+        -------
+        abspath: str
 
         """
         raise NotImplementedError
@@ -153,12 +182,12 @@ class VirtualDir(object):
         """
         raise NotImplementedError
 
-    def glob(self, path):
+    def glob(self, pattern):
         """
 
         Parameters
         ----------
-        path: str
+        pattern: str
 
         Yields
         -------
@@ -167,6 +196,18 @@ class VirtualDir(object):
 
         """
         raise NotImplementedError
+
+    def iterdir(self):
+        """
+
+        Yields
+        -------
+        subpath:
+            each subpath in the folder
+
+        """
+        for path in self.glob("*"):
+            yield path
 
     def copy(self, inpath, outpath):
         """
@@ -355,6 +396,21 @@ class LocalPath(VirtualDir):
         path = self._root.joinpath(path)
         newname = path.parent.joinpath(newname)
         path.rename(newname)
+
+    def getabs(self, path):
+        """
+
+        Parameters
+        ----------
+        path: str
+
+        Returns
+        -------
+        abspath: str
+
+        """
+        path = self._root.joinpath(path)
+        return str(path.absolute())
 
     @contextmanager
     def open(self, path, mode='r', encoding=None):
@@ -557,6 +613,8 @@ class RemotePath(VirtualDir):
             self._kwargs["look_for_keys"] = False
         self._ssh.connect(self._hostname, **self._kwargs)
         self._sftp = self._ssh.open_sftp()
+        if not self.exists(self._root):
+            self.makedirs(self._root)
         self._sftp.chdir(self._root)
 
     @renew_connection
@@ -604,6 +662,21 @@ class RemotePath(VirtualDir):
 
         """
         return stat.S_ISREG(self._sftp.stat(path).st_mode)
+
+    @renew_connection
+    def getabs(self, path):
+        """ get the absolute path
+
+        Parameters
+        ----------
+        path: str
+
+        Returns
+        -------
+        abspath: str
+
+        """
+        return os.path.join(self._sftp.getcwd(), path)
 
     @renew_connection
     def makedirs(self, path):
@@ -917,7 +990,8 @@ class change_dir(object):
             self._remote = False
             if isinstance(path, basestring):
                 if not os.path.exists(path):
-                    raise IOError("the path does not exist: {}".format(path))
+                    os.makedirs(path)
+                    #raise IOError("the path does not exist: {}".format(path))
                 if not os.path.isdir(path):
                     raise IOError("the path is not a directory: {}".format(path))
                 abspath = os.path.expanduser(os.path.abspath(path))
@@ -926,7 +1000,8 @@ class change_dir(object):
                 if not hasattr(path, "is_dir"):
                     raise IOError("path is not path_like: {}".format(path))
                 if not path.exists():
-                    raise IOError("the path does not exist: {}".format(path))
+                    path.mkdir()
+                    #raise IOError("the path does not exist: {}".format(path))
                 if not path.is_dir():
                     raise IOError("path is not a directory: {}".format(path))
                 self._path = path  # .absolute()
@@ -942,7 +1017,7 @@ class change_dir(object):
             # try connecting
             self._ssh.connect(self._hostname, **self._kwargs)
             sftp = self._ssh.open_sftp()
-            sftp.chdir(self._path)
+            #sftp.chdir(self._path)
             self._ssh.close()
 
     def __enter__(self):

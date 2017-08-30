@@ -1,163 +1,275 @@
 import os
 import shutil
 import pytest
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 from jsonextended.utils import MockPath
 from atomic_hpc.config_yaml import runs_from_config
-from atomic_hpc.context_folder import change_dir
-from atomic_hpc.deploy_runs import _create_scripts, _create_qsub, deploy_runs
+from atomic_hpc.mockssh import mockserver
+from atomic_hpc.deploy_runs import _get_inputs, _replace_in_cmnd, _create_qsub, _deploy_run_normal, _deploy_run_qsub
 
-example_file_local = """
-runs:
+example_run_local = """runs:
   - id: 1
     name: run_local
-    environment: local
-    scripts:
-      - input/script.in
-    variables:
-      var1: value
-    files:
-      frag1: input/frag.in
-    local:
-      run:
-        - echo test_echo > output.txt
-    cleanup:
+    environment: unix
+    
+    input:
+        scripts:
+          - input/script.in
+        variables:
+          var1: value
+        files:
+          frag1: input/frag.in
+    
+    process:
+        unix:
+          run:
+            - echo test_echo > output.txt
+        qsub:
+            walltime: 1:10
+            modules:
+                - quantum-espresso
+                - intel-suite
+                - mpi
+            run: 
+                - mpiexec pw.x -i script2.in > main.qe.scf.out  
+            from_temp:
+                - .other.out
+            
+    output:
       remove:
         - frag.in
-      aliases:
+      rename:
         .txt: .other
+
   - id: 2
     name: run_local_child
-    environment: local
-    local:
-      run:
-        - echo test_echo2 > output2.txt
+    environment: unix
     requires: 1
-"""
-
-example_file_qsub = """
-runs:
-  - id: 1
-    name: run_qsub
-    environment: qsub
-    qsub:
-      walltime: 1:10
-    scripts:
-      - input/script.in
-    variables:
-      var1: value
-    files:
-      frag1: input/frag.in
     
+    process:
+        unix:
+          run:
+            - echo test_echo2 > output2.txt
 """
 
+example_run_remote = """runs:
+  - id: 1
+    name: run_remote
+    environment: unix
+
+    input:
+        remote:
+            hostname: {host}
+            username: user
+            port: {port}
+            password: password
+        scripts:
+          - input/script.in
+        variables:
+          var1: value
+        files:
+          frag1: input/frag.in
+
+    process:
+        unix:
+          run:
+            - echo test_echo > output.txt
+        qsub:
+            walltime: 1:10
+            modules:
+                - quantum-espresso
+                - intel-suite
+                - mpi
+            run: 
+                - mpiexec pw.x -i script2.in > main.qe.scf.out  
+            from_temp:
+                - .other.out
+
+    output:
+      remote:
+         hostname: {host}
+         username: user
+         port: {port}
+         password: password
+      remove:
+        - frag.in
+      rename:
+        .txt: .other
+
+  - id: 2
+    name: run_remote_child
+    environment: unix
+    requires: 1
+    
+    process:
+        unix:
+          run:
+            - echo test_echo2 > output2.txt
+    
+
+"""
 
 @pytest.fixture("function")
-def config_qsub():
-    file_obj = MockPath('test_tmp/config.yml', is_file=True,
-                        content=example_file_qsub)
+def local_pathlib():
 
-    if os.path.exists('test_tmp'):
-        shutil.rmtree('test_tmp')
-    os.makedirs('test_tmp/input')
-    yield runs_from_config(file_obj)
+    test_folder = os.path.join(os.path.dirname(__file__), 'test_tmp')
+    if os.path.exists(test_folder):
+        shutil.rmtree(test_folder)
+    os.mkdir(test_folder)
+
+    configpath = os.path.join(test_folder, "config.yml")
+    with open(configpath, "w") as f:
+        f.write(example_run_local)
+    inpath = os.path.join(test_folder, "input")
+    os.mkdir(inpath)
+    with open(os.path.join(inpath, 'script.in'), 'w') as f:
+            f.write('test @v{var1}\n @f{frag1}')
+    with open(os.path.join(inpath, 'frag.in'), 'w') as f:
+        f.write('replace\n frag')
+
+    yield runs_from_config(configpath), test_folder
 
 
 @pytest.fixture("function")
-def config_local():
-    file_obj = MockPath('test_tmp/config.yml', is_file=True,
-                        content=example_file_local)
+def local_mock():
+    config_file = MockPath('config.yml', is_file=True,
+                        content=example_run_local)
+    test_folder = MockPath("test_tmp",
+                           structure=[config_file,
+                                      {"input": [
+                                          MockPath('script.in', is_file=True, content='test @v{var1}\n @f{frag1}'),
+                                          MockPath('frag.in', is_file=True, content='replace\n frag')
+                                      ]}])
 
-    yield runs_from_config(file_obj)
-
-
-def test_create_scripts_fails_variable(config_qsub):
-    top_level = config_qsub
-
-    with open('test_tmp/input/script.in', 'w') as f:
-        f.write('test @v{missingvar}')
-    with pytest.raises(KeyError, message="Expecting KeyError"):
-        with change_dir("test_tmp") as configmngr:
-            _create_scripts(top_level[0], configmngr)
+    yield runs_from_config(config_file), test_folder
 
 
-def test_create_fails_file(config_qsub):
-    top_level = config_qsub
-
-    with open('test_tmp/input/script.in', 'w') as f:
-        f.write('test @f{missingvar}')
-    with pytest.raises(KeyError, message="Expecting KeyError"):
-        with change_dir("test_tmp") as configmngr:
-            _create_scripts(top_level[0], configmngr)
-
-
-def test_create_scripts_runs(config_qsub):
-    top_level = config_qsub
-
-    with open('test_tmp/input/script.in', 'w') as f:
+@pytest.fixture("function")
+def remote():
+    test_folder = os.path.join(os.path.dirname(__file__), 'test_tmp')
+    if os.path.exists(test_folder):
+        shutil.rmtree(test_folder)
+    os.mkdir(test_folder)
+    configpath = os.path.abspath(os.path.join(test_folder, "config.yml"))
+    inpath = os.path.join(test_folder, "input")
+    os.mkdir(inpath)
+    with open(os.path.join(inpath, 'script.in'), 'w') as f:
         f.write('test @v{var1}\n @f{frag1}')
-    with open('test_tmp/input/frag.in', 'w') as f:
+    with open(os.path.join(inpath, 'frag.in'), 'w') as f:
         f.write('replace\n frag')
 
-    with change_dir("test_tmp") as configmngr:
-        output = _create_scripts(top_level[0], configmngr)
-    scriptname, script = output[0]
-    assert scriptname == "script.in"
-    assert script == "test value\n replace\n frag"
+    with mockserver.Server({"user": {"password": "password"}}, test_folder) as server:
+
+        with open(configpath, "w") as f:
+            f.write(example_run_remote.format(host=server.host, port=server.port))
+
+        yield runs_from_config(configpath), test_folder
 
 
-def test_create_qsub(config_qsub):
-    top_level = config_qsub
-
-    out = _create_qsub(top_level[0]["qsub"], 1, "test")
-    assert "PBS -N 1_test" in out
-    assert "#PBS -l walltime=1:10:00" in out
+# a better way to do this is in the works: https://docs.pytest.org/en/latest/proposals/parametrize_with_fixtures.html
+@pytest.fixture(params=['local_pathlib', 'local_mock', 'remote'])
+def context(request):
+    return request.getfuncargvalue(request.param)
 
 
-def test_deploy_local(config_local):
-    top_level = config_local
-
-    if os.path.exists('test_tmp'):
-        shutil.rmtree('test_tmp')
-    os.makedirs('test_tmp/input')
-
-    with open('test_tmp/input/script.in', 'w') as f:
-        f.write('test @v{var1}\n @f{frag1}')
-    with open('test_tmp/input/frag.in', 'w') as f:
-        f.write('replace\n frag')
-
-    deploy_runs(top_level, 'test_tmp', separate_dir=False)
-    assert os.path.exists('test_tmp/output/1_run_local/output.other')
-    assert os.path.exists('test_tmp/output/1_run_local/output2.txt')
+def test_get_inputs(context):
+    top_level, path = context
+    variables, files, scripts = _get_inputs(top_level[0], path)
+    assert variables == {"var1": "value"}
+    assert files == {'frag.in': 'replace\n frag'}
+    assert scripts == {"script.in": 'test value\n replace\n frag'}
 
 
-def test_deploy_local_separate(config_local):
-    top_level = config_local
-
-    if os.path.exists('test_tmp'):
-        shutil.rmtree('test_tmp')
-    os.makedirs('test_tmp/input')
-
-    with open('test_tmp/input/script.in', 'w') as f:
-        f.write('test @v{var1}\n @f{frag1}')
-    with open('test_tmp/input/frag.in', 'w') as f:
-        f.write('replace\n frag')
-
-    deploy_runs(top_level, 'test_tmp', separate_dir=True)
-    assert os.path.exists('test_tmp/output/1_run_local/output.other')
-    assert os.path.exists('test_tmp/output/2_run_local_child/output2.txt')
+def test_get_inputs_missing_variable_in_script(context):
+    top_level, path = context
+    run = top_level[0]
+    run["input"]["variables"] = {}
+    with pytest.raises(KeyError):
+        variables, files, scripts = _get_inputs(run, path)
 
 
-def test_deploy_local_separate_mock(config_local):
-    top_level = config_local
+def test_get_inputs_missing_file_in_script(context):
+    top_level, path = context
+    run = top_level[0]
+    run["input"]["files"] = {}
+    with pytest.raises(KeyError):
+        variables, files, scripts = _get_inputs(run, path)
 
-    folder = MockPath('test_tmp', structure=[
-        {'input': [MockPath('script.in', is_file=True, content='test @v{var1}\n @f{frag1}'),
-                   MockPath('frag.in', is_file=True, content="replace\n frag")]}])
 
-    deploy_runs(top_level, folder, separate_dir=False)
+def test_get_inputs_missing_file(context):
+    top_level, path = context
+    run = top_level[0]
+    run["input"]["files"] = {"other_file": "other_file.in"}
+    with pytest.raises(ValueError):
+        variables, files, scripts = _get_inputs(run, path)
 
-    pathstr = folder.to_string(file_content=True)
-    expectedstr = """Folder("test_tmp")
+
+def test_replace_in_cmnd():
+    cmnd = _replace_in_cmnd("mpirun -np @v{nprocs} script.in -a @v{other} > file.out", {"nprocs": 2, "other": "val"}, 1)
+    assert cmnd == "mpirun -np 2 script.in -a val > file.out"
+
+    with pytest.raises(KeyError):
+        _replace_in_cmnd("mpirun -np @v{nprocs} script.in > file.out", {}, 1)
+
+
+def test_run_deploy_normal_samefolder(context):
+    top_level, path = context
+    _deploy_run_normal(top_level[0], path)
+
+    if not hasattr(path, "to_string"):
+        assert (os.path.exists(os.path.join(str(path), 'output/1_run_local/output.other')) or
+                os.path.exists(os.path.join(str(path), 'output/1_run_remote/output.other')))
+        assert (os.path.exists(os.path.join(str(path), 'output/1_run_local/output2.txt')) or
+                os.path.exists(os.path.join(str(path), 'output/1_run_remote/output2.txt')))
+    else:
+        expected = """Folder("test_tmp")
+  File("config.yml") Contents:
+   runs:
+     - id: 1
+       name: run_local
+       environment: unix
+       
+       input:
+           scripts:
+             - input/script.in
+           variables:
+             var1: value
+           files:
+             frag1: input/frag.in
+       
+       process:
+           unix:
+             run:
+               - echo test_echo > output.txt
+           qsub:
+               walltime: 1:10
+               modules:
+                   - quantum-espresso
+                   - intel-suite
+                   - mpi
+               run: 
+                   - mpiexec pw.x -i script2.in > main.qe.scf.out  
+               from_temp:
+                   - .other.out
+               
+       output:
+         remove:
+           - frag.in
+         rename:
+           .txt: .other
+   
+     - id: 2
+       name: run_local_child
+       environment: unix
+       requires: 1
+       
+       process:
+           unix:
+             run:
+               - echo test_echo2 > output2.txt
   Folder("input")
     File("frag.in") Contents:
      replace
@@ -176,4 +288,225 @@ def test_deploy_local_separate_mock(config_local):
         replace
         frag"""
 
-    assert pathstr == expectedstr
+        assert path.to_string(file_content=True) == expected
+
+
+def test_run_deploy_normal_separate_folder(context):
+    top_level, path = context
+    _deploy_run_normal(top_level[0], path, separate_dir=True)
+
+    if not hasattr(path, "to_string"):
+        assert (os.path.exists(os.path.join(str(path), 'output/1_run_local/output.other')) or
+                os.path.exists(os.path.join(str(path), 'output/1_run_remote/output.other')))
+        assert (os.path.exists(os.path.join(str(path), 'output/2_run_local_child/output2.txt')) or
+                os.path.exists(os.path.join(str(path), 'output/2_run_remote_child/output2.txt')))
+    else:
+        expected = """Folder("test_tmp")
+  File("config.yml") Contents:
+   runs:
+     - id: 1
+       name: run_local
+       environment: unix
+       
+       input:
+           scripts:
+             - input/script.in
+           variables:
+             var1: value
+           files:
+             frag1: input/frag.in
+       
+       process:
+           unix:
+             run:
+               - echo test_echo > output.txt
+           qsub:
+               walltime: 1:10
+               modules:
+                   - quantum-espresso
+                   - intel-suite
+                   - mpi
+               run: 
+                   - mpiexec pw.x -i script2.in > main.qe.scf.out  
+               from_temp:
+                   - .other.out
+               
+       output:
+         remove:
+           - frag.in
+         rename:
+           .txt: .other
+   
+     - id: 2
+       name: run_local_child
+       environment: unix
+       requires: 1
+       
+       process:
+           unix:
+             run:
+               - echo test_echo2 > output2.txt
+  Folder("input")
+    File("frag.in") Contents:
+     replace
+      frag
+    File("script.in") Contents:
+     test @v{var1}
+      @f{frag1}
+  Folder("output")
+    Folder("1_run_local")
+      File("output.other") Contents:
+       test_echo
+      File("script.in") Contents:
+       test value
+        replace
+        frag
+    Folder("2_run_local_child")
+      File("output.other") Contents:
+       test_echo
+      File("output2.txt") Contents:
+       test_echo2
+      File("script.in") Contents:
+       test value
+        replace
+        frag"""
+
+        assert path.to_string(file_content=True) == expected
+
+
+def test_create_qsub(context):
+    top_level, path = context
+    qsub = top_level[0]["process"]["qsub"]
+    qsub["jobname"] = "1_test"
+
+    out = _create_qsub(qsub, "path/to/dir", ["test.txt", "other.txt"], ["mpiexec something"], ["*"])
+    #assert "#PBS -N 1_test" in out
+    #assert "#PBS -l walltime=1:10:00" in out
+    expected = """#!/bin/bash
+#PBS -N 1_test
+#PBS -l walltime=1:10:00
+#PBS -l select=1:ncpus=16
+#PBS -j oe
+#PBS -j bae
+
+
+echo "<qstat -f $PBS_JOBID>"
+qstat -f $PBS_JOBID
+echo "</qstat -f $PBS_JOBID>"
+
+# number of cores per node used
+export NCORES=16
+# number of processes
+export NPROCESSES=16
+
+# Make sure any symbolic links are resolved to absolute path
+export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
+
+# Set the number of threads to 1
+#   This prevents any system libraries from automatically 
+#   using threading.
+export OMP_NUM_THREADS=1
+
+module load quantum-espresso intel-suite mpi
+
+# commands to run before main run (in $WORKDIR)
+
+
+# copy required input files from $WORKDIR to $TMPDIR
+cp -p path/to/dir/test.txt $TMPDIR
+cp -p path/to/dir/other.txt $TMPDIR
+
+
+# main commands to run (in $TMPDIR)
+mpiexec something
+
+# copy required output files from $TMPDIR to $WORKDIR
+cp -pR $TMPDIR/* path/to/dir 
+
+
+# commands to run after main run (in $WORKDIR)
+
+
+"""
+    assert out == expected
+
+
+def test_run_deploy_qsub_fail(context):
+    top_level, path = context
+    run = top_level[0]
+    run["environment"] = "qsub"
+
+    with pytest.raises(RuntimeError):
+        _deploy_run_qsub(top_level[0], path)
+
+def test_run_deploy_qsub_pass(context):
+    top_level, path = context
+    run = top_level[0]
+    run["environment"] = "qsub"
+
+    with mock.patch("atomic_hpc.context_folder.LocalPath.exec_cmnd", return_value=None):
+        with mock.patch("atomic_hpc.context_folder.RemotePath.exec_cmnd", return_value=None):
+            _deploy_run_qsub(top_level[0], path)
+
+    if hasattr(path, "to_string"):
+        expected_struct = """Folder("test_tmp")
+  File("config.yml")
+  Folder("input")
+    File("frag.in")
+    File("script.in")
+  Folder("output")
+    Folder("1_run_local")
+      File("frag.in")
+      File("run.qsub")
+      File("script.in")"""
+        assert path.to_string() == expected_struct
+
+        expected_qsub = """File("run.qsub") Contents:
+#!/bin/bash
+#PBS -N 1_run_local
+#PBS -l walltime=1:10:00
+#PBS -l select=1:ncpus=16
+#PBS -j oe
+#PBS -j bae
+
+
+echo "<qstat -f $PBS_JOBID>"
+qstat -f $PBS_JOBID
+echo "</qstat -f $PBS_JOBID>"
+
+# number of cores per node used
+export NCORES=16
+# number of processes
+export NPROCESSES=16
+
+# Make sure any symbolic links are resolved to absolute path
+export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
+
+# Set the number of threads to 1
+#   This prevents any system libraries from automatically 
+#   using threading.
+export OMP_NUM_THREADS=1
+
+module load quantum-espresso intel-suite mpi
+
+# commands to run before main run (in $WORKDIR)
+
+
+# copy required input files from $WORKDIR to $TMPDIR
+cp -p test_tmp/output/1_run_local/script.in $TMPDIR
+cp -p test_tmp/output/1_run_local/frag.in $TMPDIR
+
+
+# main commands to run (in $TMPDIR)
+mpiexec pw.x -i script2.in > main.qe.scf.out
+
+# copy required output files from $TMPDIR to $WORKDIR
+cp -pR $TMPDIR/*.other.out test_tmp/output/1_run_local 
+
+
+# commands to run after main run (in $WORKDIR)
+
+"""
+
+        assert path["output/1_run_local/run.qsub"].to_string(file_content=True) == expected_qsub
+
