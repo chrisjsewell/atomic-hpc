@@ -100,5 +100,6 @@ ENV/
 # mypy
 .mypy_cache/
 
-# test folder
+# test folders
 test_tmp/
+test_external/

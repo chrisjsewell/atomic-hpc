@@ -213,7 +213,6 @@ class Server(object):
         t.start()
         return self
 
-
     def _run(self):
         sock = self._socket
         while sock.fileno() > 0:
@@ -246,7 +245,6 @@ class Server(object):
         host_keys.add(self.host, "ssh-rsa", key)
         host_keys.add("[%s]:%d" % (self.host, self.port), "ssh-rsa", key)
         c.set_missing_host_key_policy(paramiko.RejectPolicy())
-        #c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         c.connect(hostname=self.host,
                   port=self.port,
                   username=uid,

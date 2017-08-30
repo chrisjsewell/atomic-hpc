@@ -1,8 +1,11 @@
+import os
+import shutil
 import pytest
 import inspect
 from jsonextended.utils import MockPath
 from atomic_hpc.context_folder import change_dir, splitall, LocalPath, RemotePath
-# import pathlib
+from atomic_hpc.mockssh import mockserver
+import pathlib
 
 
 def test_splitall():
@@ -14,36 +17,135 @@ def test_consistent():
     remote = [name for name, val in inspect.getmembers(RemotePath, predicate=inspect.isfunction) if not name.startswith("_")]
     assert sorted(local) == sorted(remote)
 
-def test_local():
+
+@pytest.fixture("function")
+def local_pathlib():
+
+    test_folder = os.path.join(os.path.dirname(__file__), 'test_tmp')
+    if os.path.exists(test_folder):
+        shutil.rmtree(test_folder)
+    os.mkdir(test_folder)
+    test_file = os.path.join(test_folder, "file.txt")
+    with open(test_file, "w") as f:
+        f.write("file content")
+    dir1 = pathlib.Path(test_folder)
+
+    test_external = os.path.join(os.path.dirname(__file__), 'test_external')
+    if os.path.exists(test_external):
+        shutil.rmtree(test_external)
+    os.mkdir(test_external)
+    test_file = os.path.join(test_external, "file.txt")
+    with open(test_file, "w") as f:
+        f.write("file content")
+    test_external = pathlib.Path(test_external)
+
+    with change_dir(dir1) as testdir:
+        yield testdir, test_external
+
+
+@pytest.fixture("function")
+def local_mockpath():
 
     file1 = MockPath('file.txt', is_file=True,
                      content="file content")
-    dir1 = MockPath('dir1', structure=[file1])
-    dir2 = MockPath('dir2', structure=[file1.copy_path_obj()])
-
-    # dir1 = pathlib.Path("dir1")
-    # dir2 = pathlib.Path("dir2")
+    dir1 = MockPath('test_tmp', structure=[file1])
+    dir2 = MockPath('test_external', structure=[file1.copy_path_obj()])
 
     with change_dir(dir1) as testdir:
-        assert testdir.exists('file.txt')
-        assert testdir.isfile('file.txt')
-        testdir.makedirs('subdir1/subsubdir1')
-        assert sorted([str(p) for p in testdir.glob('**/*')]) == sorted(['dir1/file.txt', 'dir1/subdir1',
-                                                                         'dir1/subdir1/subsubdir1'])
-        assert testdir.exists('subdir1/subsubdir1')
-        assert testdir.isdir('subdir1/subsubdir1')
-        testdir.rmtree('subdir1')
-        assert sorted([str(p) for p in testdir.glob('**/*')]) == sorted(['dir1/file.txt'])
-        testdir.rename('file.txt', 'file2.txt')
-        assert sorted([str(p) for p in testdir.glob('**/*')]) == sorted(['dir1/file2.txt'])
-        testdir.remove('file2.txt')
-        assert [str(p) for p in testdir.glob('**/*')] == []
-        testdir.copy_from(dir2, '.')
-        assert sorted([str(p) for p in testdir.glob('**/*')]) == sorted(['dir1/dir2', 'dir1/dir2/file.txt'])
-        testdir.copy_to('.', dir2)
-        assert sorted([str(p) for p in dir2.glob('**/*')]) == sorted(['dir2/dir1', 'dir2/file.txt',
-                                                                      'dir2/dir1/dir2', 'dir2/dir1/dir2/file.txt'])
-        testdir.exec_cmnd("echo hi >> new.txt")
-        assert dir1.joinpath("new.txt").exists()
-        with dir1.joinpath("new.txt").open() as f:
-            assert f.read() == "hi"
+        yield testdir, dir2
+
+
+@pytest.fixture("function")
+def remote():
+    test_folder = os.path.join(os.path.dirname(__file__), 'test_tmp')
+    if os.path.exists(test_folder):
+        shutil.rmtree(test_folder)
+    os.mkdir(test_folder)
+    test_file = os.path.join(test_folder, "file.txt")
+    with open(test_file, "w") as f:
+        f.write("file content")
+
+    test_external = os.path.join(os.path.dirname(__file__), 'test_external')
+    if os.path.exists(test_external):
+        shutil.rmtree(test_external)
+    os.mkdir(test_external)
+    test_file = os.path.join(test_external, "file.txt")
+    with open(test_file, "w") as f:
+        f.write("file content")
+    test_external = pathlib.Path(test_external)
+
+    with mockserver.Server({"user": {"password": "password"}}, test_folder) as server:
+        with change_dir(".", remote=True, hostname=server.host,
+                        port=server.port, username="user", password="password") as testdir:
+            yield testdir, test_external
+
+
+# a better way to do this is in the works: https://docs.pytest.org/en/latest/proposals/parametrize_with_fixtures.html
+@pytest.fixture(params=['local_pathlib', 'local_mockpath', 'remote'])
+def context(request):
+    return request.getfuncargvalue(request.param)
+
+
+def test_context_methods1(context):
+    testdir, test_external = context
+
+    assert testdir.exists('file.txt')
+    assert testdir.isfile('file.txt')
+    testdir.makedirs('subdir1/subsubdir1')
+
+    assert sorted([p for p in testdir.glob('*')]) == sorted(['file.txt', 'subdir1'])
+    assert sorted([p for p in testdir.glob('subdir1/*')]) == sorted(['subdir1/subsubdir1'])
+    assert sorted([p for p in testdir.glob('**')]) == sorted(['subdir1', 'subdir1/subsubdir1'])
+    assert sorted([p for p in testdir.glob('**/*')]) == sorted(['file.txt', 'subdir1',
+                                                                'subdir1/subsubdir1'])
+    assert testdir.exists('subdir1/subsubdir1')
+    assert testdir.isdir('subdir1/subsubdir1')
+
+    testdir.rmtree('subdir1')
+    assert sorted([p for p in testdir.glob('**/*')]) == sorted(['file.txt'])
+
+
+def test_context_methods2(context):
+    testdir, test_external = context
+
+    testdir.rename('file.txt', 'file2.txt')
+    assert sorted([p for p in testdir.glob('**/*')]) == sorted(['file2.txt'])
+    testdir.remove('file2.txt')
+    assert [p for p in testdir.glob('**/*')] == []
+    testdir.copy_from(test_external, '.')
+    assert sorted([p for p in testdir.glob('**/*')]) == sorted(['test_external', 'test_external/file.txt'])
+    testdir.copy_to('.', test_external)
+    expected = sorted(['test_tmp', 'file.txt', 'test_tmp/test_external', 'test_tmp/test_external/file.txt'])
+    assert sorted([str(p.relative_to(test_external)) for p in test_external.glob('**/*')]) == expected
+    testdir.exec_cmnd("echo test123 >> new.txt", "test_external")
+    assert testdir.exists("test_external/new.txt")
+
+    with testdir.open("test_external/new.txt") as f:
+        assert f.read().strip() == "test123"
+
+    testdir.copy("test_external/new.txt", ".")
+    expected = sorted(['new.txt', 'test_external', 'test_external/file.txt', 'test_external/new.txt'])
+    assert sorted(list(testdir.glob('**/*'))) == expected
+
+    testdir.makedirs("other")
+    testdir.copy("test_external", "other")
+    expected = sorted(['new.txt', 'test_external', 'test_external/file.txt', 'test_external/new.txt',
+                       'other', 'other/test_external', 'other/test_external/file.txt', 'other/test_external/new.txt'])
+    assert sorted(list(testdir.glob('**/*'))) == expected
+
+  #       expected_output = """Folder("dir1")
+  # Folder("dir2")
+  #   File("file.txt") Contents:
+  #    file content
+  # File("new.txt") Contents:
+  #  hi"""
+  #       assert dir1.to_string(file_content=True) == expected_output
+
+
+def test_exec_fail(context):
+    testdir, _ = context
+
+    with pytest.raises(RuntimeError):
+        testdir.exec_cmnd("kjblkblkjb")
+
+

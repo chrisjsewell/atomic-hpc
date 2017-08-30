@@ -1,7 +1,6 @@
 """
 module to deploy runs
 """
-import glob
 import os
 import logging
 import re
@@ -295,7 +294,7 @@ def deploy_run_local(run, config_path, exists_error=False, parent_dir=None, sepa
             for old, new in run["cleanup"]["aliases"].items():
                 renamedir = os.path.join(outdir, "*{}".format(old))
                 for path in configdir.glob(renamedir):
-                    newname = path.name[:-len(old)] + new
+                    newname = os.path.basename(path)[:-len(old)] + new
                     logging.debug("renaming {0} to {1}".format(path, newname))
                     configdir.rename(path, newname)
 

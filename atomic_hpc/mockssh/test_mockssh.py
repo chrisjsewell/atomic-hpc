@@ -39,7 +39,7 @@ def test_invalid_user(server):
     assert exc.value.args[0] == "unknown-user"
 
 
-def test_connect(server):
+def test_connect_wrong_hostname(server):
     c = paramiko.SSHClient()
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -49,7 +49,13 @@ def test_connect(server):
                   username="user_password",
                   password="password",
                   allow_agent=False,
-                  look_for_keys=False)
+                  look_for_keys=False,
+                  timeout=5)  # NB this hangs for over a minute if no timeout set
+
+
+def test_connect_wrong_password(server):
+    c = paramiko.SSHClient()
+    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     with pytest.raises(paramiko.ssh_exception.AuthenticationException):
         c.connect(hostname=server.host,
@@ -58,6 +64,11 @@ def test_connect(server):
                   password="wrong_password",
                   allow_agent=False,
                   look_for_keys=False)
+
+
+def test_connect_wrong_keypath(server):
+    c = paramiko.SSHClient()
+    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     # should really raise paramiko.ssh_exception.AuthenticationException but doesn't
     # looks related to paramiko/paramiko#387
@@ -69,6 +80,10 @@ def test_connect(server):
                   allow_agent=False,
                   look_for_keys=False)
 
+def test_connect_password(server):
+    c = paramiko.SSHClient()
+    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
     c.connect(hostname=server.host,
               port=server.port,
               username="user_password",
@@ -76,6 +91,10 @@ def test_connect(server):
               allow_agent=False,
               look_for_keys=False)
     c.close()
+
+def test_connect_keypath(server):
+    c = paramiko.SSHClient()
+    c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     c.connect(hostname=server.host,
               port=server.port,
