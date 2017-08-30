@@ -5,7 +5,11 @@ import inspect
 from jsonextended.utils import MockPath
 from atomic_hpc.context_folder import change_dir, splitall, LocalPath, RemotePath
 from atomic_hpc.mockssh import mockserver
-import pathlib
+# python 3 to 2 compatibility
+try:
+    import pathlib
+except ImportError:
+    import pathlib2 as pathlib
 
 
 def test_splitall():
