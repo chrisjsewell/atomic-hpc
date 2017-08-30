@@ -10,11 +10,14 @@ try:
     basestring
 except NameError:
     basestring = str
-# python 3 to 2 compatibility
 try:
     import pathlib
 except ImportError:
     import pathlib2 as pathlib
+try:
+    unicode
+except NameError:
+    unicode=str
 
 from atomic_hpc import context_folder
 
@@ -494,7 +497,7 @@ def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent
         qsub = _create_qsub(run["process"]["qsub"], abspath, fnames, cmnds_run, copyregex)
 
         with folder.open(os.path.join(outdir, "run.qsub"), 'w') as f:
-            f.write(qsub)
+            f.write(unicode(qsub))
 
         # run
         folder.exec_cmnd("qsub run.qsub", outdir)
