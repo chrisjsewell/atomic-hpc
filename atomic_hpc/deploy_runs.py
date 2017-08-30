@@ -1,6 +1,7 @@
 """
 module to deploy runs
 """
+import copy
 import os
 import logging
 import re
@@ -89,7 +90,7 @@ def _get_inputs(run, config_path):
     with context_folder.change_dir(**kwargs) as folder:
 
         if run["input"]["variables"] is not None:
-            variables = run["input"]["variables"].copy()
+            variables = copy.copy(run["input"]["variables"])
         else:
             variables = {}
 
