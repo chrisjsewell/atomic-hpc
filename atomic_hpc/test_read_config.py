@@ -35,7 +35,7 @@ expected_output_minimal = [
                 "nnodes": 1,
                 "walltime": "24:00:00",
                 "queue": None,
-                "email": True,
+                "email": None,
                 "modules": None,
                 "before_run": None,
                 "run": None,
@@ -86,7 +86,7 @@ defaults:
             nnodes: 1     
             walltime: 1:00:00
             queue: queue_name
-            email: true
+            email: bob@hotmail.com
             modules:
                 - quantum-espresso
                 - intel-suite
@@ -179,7 +179,7 @@ expected_output_maximal = [
                 "nnodes": 1,
                 "walltime": "1:00:00",
                 "queue": "queue_name",
-                "email": True,
+                "email": "bob@hotmail.com",
                 "modules": [
                     "quantum-espresso",
                     "intel-suite",
@@ -261,7 +261,7 @@ expected_output_maximal = [
                 "nnodes": 1,
                 "walltime": "1:00:00",
                 "queue": "queue_name",
-                "email": True,
+                "email": "bob@hotmail.com",
                 "modules": [
                     "quantum-espresso",
                     "intel-suite",

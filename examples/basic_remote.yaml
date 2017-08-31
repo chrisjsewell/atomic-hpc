@@ -1,0 +1,15 @@
+runs:
+  - id: 1
+    name: test_remote
+    environment: unix
+
+    output:
+      remote:
+        hostname: login.cx1.hpc.imperial.ac.uk
+        username: cjs14
+      path: /work/cjs14/yaml_test
+
+    process:
+      unix:
+        run:
+          - echo test > test.txt

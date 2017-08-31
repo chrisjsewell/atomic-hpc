@@ -37,7 +37,7 @@ _process_qsub_schema = {
         "walltime": {"type": "string", "format": "date-time"},
         "queue": {"type": ["string", "null"]},
         "jobname": {"type": ["string", "null"]},
-        "email": {"type": "boolean"},
+        "email": {"type": ["string", "null"]},
         "modules": {"type": ["array", "null"], "items": {"type": "string"}},
 
         "before_run": {"type": ["array", "null"], "items": {"type": "string"}},
@@ -166,7 +166,7 @@ _global_defaults = {
             "nnodes": 1,
             "walltime": "24:00:00",
             "queue": None,
-            "email": True,
+            "email": None,
             "modules": None,
 
             "before_run": None,

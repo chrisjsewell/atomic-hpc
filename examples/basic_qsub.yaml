@@ -1,0 +1,28 @@
+runs:
+  - id: 1
+    name: test_qsub
+    environment: qsub
+
+    input:
+      files:
+        file1: /Users/cjs14/GitHub/atomic-hpc/examples/test_input.txt
+
+    output:
+      remote:
+        hostname: login.cx1.hpc.imperial.ac.uk
+        username: cjs14
+      path: /work/cjs14/yaml_test
+
+    process:
+      unix:
+        run:
+          - source /etc/bashrc; source /etc/profile; qsub --version > qsub_version.txt
+      qsub:
+        walltime: 00:00:01
+        email: c.sewell14@imperial.ac.uk
+        run:
+          - echo test > test.txt
+          - echo other >> test_input.txt
+          - echo other2 >> test_input.txt
+        from_temp:
+          - .txt

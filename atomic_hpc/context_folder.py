@@ -24,21 +24,7 @@ try:
 except ImportError:
     import pathlib2 as pathlib
 
-
-def splitall(path):
-    allparts = []
-    while 1:
-        parts = os.path.split(path)
-        if parts[0] == path:  # sentinel for absolute paths
-            allparts.insert(0, parts[0])
-            break
-        elif parts[1] == path: # sentinel for relative paths
-            allparts.insert(0, parts[1])
-            break
-        else:
-            path = parts[0]
-            allparts.insert(0, parts[1])
-    return allparts
+from atomic_hpc.utils import walk_path, glob_path, splitall
 
 
 class VirtualDir(object):
@@ -197,7 +183,7 @@ class VirtualDir(object):
         """
         raise NotImplementedError
 
-    def iterdir(self):
+    def iterdir(self, path=""):
         """
 
         Yields
@@ -206,7 +192,7 @@ class VirtualDir(object):
             each subpath in the folder
 
         """
-        for path in self.glob("*"):
+        for path in self.glob(os.path.join(path, "*")):
             yield path
 
     def copy(self, inpath, outpath):
@@ -607,10 +593,10 @@ class RemotePath(VirtualDir):
         self._ssh = ssh
         self._hostname = hostname
         self._kwargs = kwargs
-        if "allow_agent" not in kwargs:
-            self._kwargs["allow_agent"] = False
-        if "look_for_keys" not in kwargs:
-            self._kwargs["look_for_keys"] = False
+        # if "allow_agent" not in kwargs:
+        #     self._kwargs["allow_agent"] = False
+        # if "look_for_keys" not in kwargs:
+        #     self._kwargs["look_for_keys"] = False
         self._ssh.connect(self._hostname, **self._kwargs)
         self._sftp = self._ssh.open_sftp()
         if not self.exists(self._root):
@@ -697,43 +683,6 @@ class RemotePath(VirtualDir):
             if not self.exists(curdir):
                 self._sftp.mkdir(curdir)
 
-    # TODO Passes tests but could probably be written better
-    def _recursive_glob(self, path, pattern, file_list):
-
-        if "**" in pattern:
-            recursive = True
-        else:
-            recursive = False
-
-        root = self._sftp.listdir(path)
-
-        for f in (os.path.join(path, entry) for entry in root):
-            f_stat = self._sftp.stat(f)
-            if fnmatch(f, pattern):
-                if pattern.endswith("**") and stat.S_ISDIR(f_stat.st_mode):
-                    file_list.append(f)
-                elif pattern.endswith("**") and stat.S_ISREG(f_stat.st_mode):
-                    continue
-                elif stat.S_ISDIR(f_stat.st_mode) and recursive:
-                    pass
-                else:
-                    file_list.append(f)
-                    continue
-            if stat.S_ISDIR(f_stat.st_mode) and recursive:
-                if f not in file_list:
-                    file_list.append(f)
-                self._recursive_glob(f, pattern, file_list)
-                continue
-            patternlist = splitall(pattern)
-            nodblstar = os.path.join(*[p for p in patternlist if p != "**"])
-            if not pattern.endswith("**") and fnmatch(f, nodblstar):
-                file_list.append(f)
-            pathlist = splitall(f)
-            if stat.S_ISDIR(f_stat.st_mode) and len(patternlist) > len(pathlist):
-                l = len(pathlist)
-                if fnmatch(f, os.path.join(*patternlist[:l])):
-                    self._recursive_glob(f, pattern, file_list)
-
     @renew_connection
     def glob(self, pattern):
         """
@@ -746,17 +695,13 @@ class RemotePath(VirtualDir):
         -------
 
         """
-        if not pattern or pattern == ".":
-            return
         if pattern.startswith(".."):
             raise IOError("cannot go outside folder context")
-        patternlist = splitall(pattern)
-        if patternlist[0] == ".":
-            pattern = os.path.join(*patternlist[1:])
 
-        file_list = []
-        self._recursive_glob("", pattern, file_list)
-        for path in file_list:
+        def walk_func(apath):
+            return walk_path(apath, listdir=self._sftp.listdir, isfile=self.isfile, isfolder=self.isdir)
+
+        for path in glob_path("", pattern, walk_func):
             yield path
 
     @renew_connection
@@ -777,13 +722,9 @@ class RemotePath(VirtualDir):
             raise IOError("root doesn't exist: {}".format(path))
         if not self.isdir(path):
             raise IOError("root is not a directory: {}".format(path))
-        print(os.path.join(path, "**", "*"))
-        print(list(reversed(sorted(self.glob(os.path.join(path, "**", "*"))))))
-        for subpath in reversed(sorted(self.glob(os.path.join(path, "**/*")))):
-            if self.isfile(subpath):
-                self._sftp.remove(subpath)
-            else:
-                self._sftp.rmdir(subpath)
+        logging.info("removing: {0}".format(list(self.glob(os.path.join(path, "**", "*")))))
+        for subpath in reversed(sorted(self.glob(os.path.join(path, "**", "*")))):
+            self.remove(subpath)
 
     @renew_connection
     def rename(self, path, newname):
@@ -815,9 +756,18 @@ class RemotePath(VirtualDir):
 
         """
         if self.isfile(path):
-            self._sftp.remove(path)
+            try:
+                self._sftp.remove(path)
+            except IOError as err:
+                raise IOError("failed to remove file; {0}, with error:\n{1}".format(path, err))
         else:
-            self._sftp.rmdir(path)
+            if list(self.iterdir(path)):
+                raise IOError("the folder; {0}, contains content, use rmtree if you wish to delete it".format(path))
+            try:
+                self._sftp.rmdir(path)
+            except IOError as err:
+                raise IOError("failed to remove folder; {0}, with error:\n{1}".format(path, err))
+
 
     # TODO can get callbacks while uploading
     @renew_connection
@@ -873,7 +823,6 @@ class RemotePath(VirtualDir):
             targetchild = target.joinpath(os.path.basename(path))
         if self.isfile(path):
             targetchild.touch()
-            print(targetchild, path)
             with targetchild.open("wb") as file_obj:
                 self._sftp.getfo(path, file_obj)
         else:
@@ -936,6 +885,9 @@ class RemotePath(VirtualDir):
             logging.error(err_msg)
             if raise_error:
                 raise RuntimeError(err_msg)
+
+        print(error)
+        print(stdout.read().decode())
 
     # TODO will only work for unix based systems
     # TODO overwriting?
@@ -1015,10 +967,14 @@ class change_dir(object):
             self._ssh = paramiko.SSHClient()
             self._ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             # try connecting
-            self._ssh.connect(self._hostname, **self._kwargs)
-            sftp = self._ssh.open_sftp()
-            #sftp.chdir(self._path)
-            self._ssh.close()
+            try:
+                self._ssh.connect(self._hostname, **self._kwargs)
+                sftp = self._ssh.open_sftp()
+                #sftp.chdir(self._path)
+                self._ssh.close()
+            except Exception as err:
+                raise RuntimeError("failed connecting to {0} with args: {1}\n{2}".format(
+                    self._hostname, self._kwargs, err))
 
     def __enter__(self):
         if not self._remote:

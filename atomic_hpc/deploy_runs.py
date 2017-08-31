@@ -46,9 +46,9 @@ def deploy_runs(top_level_runs, config_path, exists_error=False, separate_dir=Fa
     """
     for run in top_level_runs:
         if run["environment"] in ["unix", "windows"]:
-            _deploy_run_normal(run, config_path, exists_error=exists_error)
+            _deploy_run_normal(run, config_path, exists_error=exists_error, separate_dir=separate_dir)
         elif run["environment"] == "qsub":
-            _deploy_run_qsub(run, config_path)
+            _deploy_run_qsub(run, config_path, exists_error=exists_error, separate_dir=separate_dir)
         else:
             raise ValueError("unknown environment: {}".format(run["environment"]))
 
@@ -108,38 +108,39 @@ def _get_inputs(run, config_path):
                     files[fid] = (folder.name(fpath), f.read())
 
         scripts = {}
-        for spath in run["input"]["scripts"]:
+        if run["input"]["scripts"] is not None:
+            for spath in run["input"]["scripts"]:
 
-            # create main script
-            if not folder.exists(spath):
-                raise ValueError("run {0}: script path does not exist: {1}".format(run["id"], spath))
-            if not folder.isfile(spath):
-                raise ValueError("run {0}: files path is not a file: {1}".format(run["id"], spath))
-            scriptname = folder.name(spath)
+                # create main script
+                if not folder.exists(spath):
+                    raise ValueError("run {0}: script path does not exist: {1}".format(run["id"], spath))
+                if not folder.isfile(spath):
+                    raise ValueError("run {0}: files path is not a file: {1}".format(run["id"], spath))
+                scriptname = folder.name(spath)
 
-            if scriptname in scripts:
-                raise ValueError("run {0}: two scripts with same name: {1}".format(run["id"], scriptname))
+                if scriptname in scripts:
+                    raise ValueError("run {0}: two scripts with same name: {1}".format(run["id"], scriptname))
 
-            with folder.open(spath) as f:
-                script = f.read()
+                with folder.open(spath) as f:
+                    script = f.read()
 
-            # insert variables
-            var_error = "run {id}: variable name; {var_name} not available to replace in script; {spath}"
-            for tag in re.findall(_REGEX_VAR, script):
-                var = tag[3:-1]
-                if var not in variables:
-                    raise KeyError(var_error.format(id=run["id"], var_name=var, spath=spath))
-                script = script.replace(tag, str(variables[var]))
+                # insert variables
+                var_error = "run {id}: variable name; {var_name} not available to replace in script; {spath}"
+                for tag in re.findall(_REGEX_VAR, script):
+                    var = tag[3:-1]
+                    if var not in variables:
+                        raise KeyError(var_error.format(id=run["id"], var_name=var, spath=spath))
+                    script = script.replace(tag, str(variables[var]))
 
-            # insert file contents
-            file_error = "run {id}: file; {path_name} not available to replace in script; {spath}"
-            for tag in re.findall(_REGEX_FILE, script):
-                var = tag[3:-1]
-                if var not in files:
-                    raise KeyError(file_error.format(id=run["id"], path_name=var, spath=spath))
-                script = script.replace(tag, files[var][1])
+                # insert file contents
+                file_error = "run {id}: file; {path_name} not available to replace in script; {spath}"
+                for tag in re.findall(_REGEX_FILE, script):
+                    var = tag[3:-1]
+                    if var not in files:
+                        raise KeyError(file_error.format(id=run["id"], path_name=var, spath=spath))
+                    script = script.replace(tag, files[var][1])
 
-            scripts[scriptname] = script
+                scripts[scriptname] = script
 
     return variables, dict(files.values()), scripts
 
@@ -227,8 +228,7 @@ def _deploy_run_normal(run, root_path, exists_error=False, parent_dir=None, pare
                     raise IOError("output dir already exists: {}".format(outdir))
                 logging.info("removing existing output: {}".format(outdir))
                 folder.rmtree(outdir)
-            else:
-                folder.makedirs(outdir)
+            folder.makedirs(outdir)
             if separate_dir and parent_dir is not None:
                 for ppath in folder.glob(os.path.join(parent_dir, "*")):
                     folder.copy(ppath, outdir)
@@ -273,7 +273,7 @@ def _deploy_run_normal(run, root_path, exists_error=False, parent_dir=None, pare
                            parent_dir=outdir, parent_kwargs=kwargs, separate_dir=separate_dir)
 
 
-_qsub_top_template = """#!/bin/bash
+_qsub_top_template = """#!/bin/bash --login
 #PBS -N {jobname:.14}
 #PBS -l walltime={walltime}
 #PBS -l select={nnodes}:ncpus={ncores}
@@ -377,7 +377,9 @@ def _create_qsub(qsub, wrkpath, fnames, execruns, copyregex):
     pbs_optional = ""
     pbs_optional += "#PBS -q \n" + qsub["queue"] if qsub["queue"] is not None else ""
     # Sends email to the submitter when the job begins/ends/aborts
-    pbs_optional += "#PBS -j bae\n" if qsub.get("email", False) else ""
+    if qsub.get("email", None) is not None:
+        pbs_optional += "#PBS -M {}\n".format(qsub["email"])
+        pbs_optional += "#PBS -m bae\n"
 
     # get modules to load
     load_modules = "module load " + " ".join(qsub["modules"]) if qsub["modules"] is not None else ""
@@ -469,7 +471,6 @@ def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent
         logging.info("running child: {0}: {1}".format(run["id"], run["name"]))
         kwargs = parent_kwargs
 
-    print(kwargs)
     with context_folder.change_dir(**kwargs) as folder:
 
         # create output folder
@@ -479,8 +480,7 @@ def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent
                 raise IOError("output dir already exists: {}".format(outdir))
             logging.info("removing existing output: {}".format(outdir))
             folder.rmtree(outdir)
-        else:
-            folder.makedirs(outdir)
+        folder.makedirs(outdir)
 
         for fname, fcontent in files.items():
             with folder.open(os.path.join(outdir, fname), 'w') as f:
@@ -500,4 +500,5 @@ def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent
             f.write(unicode(qsub))
 
         # run
-        folder.exec_cmnd("qsub run.qsub", outdir)
+        # TODO should do this more flexibly
+        folder.exec_cmnd("source /etc/bashrc; source /etc/profile; qsub run.qsub", outdir)

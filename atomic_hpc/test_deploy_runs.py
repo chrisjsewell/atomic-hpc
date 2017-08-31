@@ -382,12 +382,11 @@ def test_create_qsub(context):
     out = _create_qsub(qsub, "path/to/dir", ["test.txt", "other.txt"], ["mpiexec something"], ["*"])
     #assert "#PBS -N 1_test" in out
     #assert "#PBS -l walltime=1:10:00" in out
-    expected = """#!/bin/bash
+    expected = """#!/bin/bash --login
 #PBS -N 1_test
 #PBS -l walltime=1:10:00
 #PBS -l select=1:ncpus=16
 #PBS -j oe
-#PBS -j bae
 
 
 echo "<qstat -f $PBS_JOBID>"
@@ -462,12 +461,11 @@ def test_run_deploy_qsub_pass(context):
         assert path.to_string() == expected_struct
 
         expected_qsub = """File("run.qsub") Contents:
-#!/bin/bash
+#!/bin/bash --login
 #PBS -N 1_run_local
 #PBS -l walltime=1:10:00
 #PBS -l select=1:ncpus=16
 #PBS -j oe
-#PBS -j bae
 
 
 echo "<qstat -f $PBS_JOBID>"
