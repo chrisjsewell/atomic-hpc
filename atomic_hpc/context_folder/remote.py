@@ -317,7 +317,7 @@ class RemotePath(VirtualDir):
 
     @staticmethod
     def _stream_exec(ssh, cmd, timeout,
-                     stdout_func=sys.stdout.buffer.write, stderr_func=sys.stderr.buffer.write):
+                     stdout_func=None, stderr_func=None):
         """ stream the stdout and stderror to a function
 
         adapted from: https://github.com/paramiko/paramiko/issues/593
@@ -328,14 +328,26 @@ class RemotePath(VirtualDir):
         ssh: paramiko.client.SSHClient
         cmd: str
         timeout: None or float
-        out_func: func
-            must take input as bytes
+        stdout_func: func
+            must take input as bytes, defaults to sys.stdout
+        stderr_func: func
+            must take input as bytes, defaults to sys.stderr
 
         Returns
         -------
         exitcode:
 
         """
+        if stdout_func is None:
+            if hasattr(sys.stdout, "buffer"):
+                stdout_func = sys.stdout.buffer.write
+            else:
+                stdout_func = sys.stdout.write
+        if stderr_func is None:
+            if hasattr(sys.stderr, "buffer"):
+                stderr_func = sys.stderr.buffer.write
+            else:
+                stderr_func = sys.stderr.write
 
         stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
         channel = stdout.channel
