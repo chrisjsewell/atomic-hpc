@@ -31,6 +31,10 @@ def dummy_walk_path(path):
     return walk_path(path, dummy_listdir, dummy_isfile, dummy_isfolder)
 
 
+def test_splitall():
+    assert splitall('a/b/c') == ['a', 'b', 'c']
+
+
 def test_glob_path():
     # print(list(dummy_walk_path("")))
     assert list(glob_path("", "**", dummy_walk_path)) == ['a', 'b', 'a/d', 'a/d/e', 'a/d/e/f']

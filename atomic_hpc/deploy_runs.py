@@ -24,8 +24,10 @@ from atomic_hpc import context_folder
 _REGEX_VAR = r"(?:\@v\{[^}]+\})"
 _REGEX_FILE = r"(?:\@f\{[^}]+\})"
 
+logger = logging.getLogger(__name__)
 
-def deploy_runs(top_level_runs, config_path, exists_error=False, separate_dir=False):
+
+def deploy_runs(top_level_runs, config_path, exists_error=False, exec_errors=False, separate_dir=False):
     """
 
     Parameters
@@ -35,7 +37,9 @@ def deploy_runs(top_level_runs, config_path, exists_error=False, separate_dir=Fa
     config_path: str or path_like
         the _path of the config file
     exists_error: bool
-        if True, raise an IOError if the output _path already exists
+        if True, raise an IOError if the output path already exists
+    exec_errors: bool
+        if True, raise Error if exec commands return with errorcode
     separate_dir: bool
         for local:
         if True and parent_dir is not None, the run will take place in the parent_dir
@@ -46,9 +50,9 @@ def deploy_runs(top_level_runs, config_path, exists_error=False, separate_dir=Fa
     """
     for run in top_level_runs:
         if run["environment"] in ["unix", "windows"]:
-            _deploy_run_normal(run, config_path, exists_error=exists_error, separate_dir=separate_dir)
+            _deploy_run_normal(run, config_path, exists_error=exists_error, exec_errors=exec_errors, separate_dir=separate_dir)
         elif run["environment"] == "qsub":
-            _deploy_run_qsub(run, config_path, exists_error=exists_error, separate_dir=separate_dir)
+            _deploy_run_qsub(run, config_path, exists_error=exists_error, exec_errors=exec_errors, separate_dir=separate_dir)
         else:
             raise ValueError("unknown environment: {}".format(run["environment"]))
 
@@ -169,7 +173,7 @@ def _replace_in_cmnd(cmndline, variables, rid):
     return cmndline
 
 
-def _deploy_run_normal(run, root_path, exists_error=False, parent_dir=None, parent_kwargs=None, separate_dir=False):
+def _deploy_run_normal(run, root_path, exists_error=False, exec_errors=False, parent_dir=None, parent_kwargs=None, separate_dir=False):
     """ deploy run and child runs (recursively)
 
     Parameters
@@ -180,6 +184,8 @@ def _deploy_run_normal(run, root_path, exists_error=False, parent_dir=None, pare
         the path to resolve (local) relative paths from
     exists_error: bool
         if True, raise an IOError if the output path already exists
+    exec_errors: bool
+        if True, raise Error if exec commands return with errorcode
     parent_dir: str or None
         the parent output directory (if dependant on another run's output)
      parent_kwargs : dict
@@ -189,7 +195,7 @@ def _deploy_run_normal(run, root_path, exists_error=False, parent_dir=None, pare
     -------
 
     """
-    logging.info("gathering inputs for run: {0}: {1}".format(run["id"], run["name"]))
+    logger.info("gathering inputs for run: {0}: {1}".format(run["id"], run["name"]))
 
     # get inputs
     variables, files, scripts = _get_inputs(run, root_path)
@@ -207,15 +213,15 @@ def _deploy_run_normal(run, root_path, exists_error=False, parent_dir=None, pare
         else:
             outpath = run["output"]["path"]
         if run["output"]["remote"] is None:
-            logging.info("running locally: {0}: {1}".format(run["id"], run["name"]))
+            logger.info("running locally: {0}: {1}".format(run["id"], run["name"]))
             kwargs = dict(path=root_path.joinpath(outpath))
         else:
-            logging.info("running remotely: {0}: {1}".format(run["id"], run["name"]))
+            logger.info("running remotely: {0}: {1}".format(run["id"], run["name"]))
             remote = run["output"]["remote"].copy()
             hostname = remote.pop("hostname")
             kwargs = dict(path=outpath, remote=True, hostname=hostname, **remote)
     else:
-        logging.info("running child: {0}: {1}".format(run["id"], run["name"]))
+        logger.info("running child: {0}: {1}".format(run["id"], run["name"]))
         kwargs = parent_kwargs
 
     with context_folder.change_dir(**kwargs) as folder:
@@ -226,7 +232,7 @@ def _deploy_run_normal(run, root_path, exists_error=False, parent_dir=None, pare
             if folder.exists(outdir):
                 if exists_error:
                     raise IOError("output dir already exists: {}".format(outdir))
-                logging.info("removing existing output: {}".format(outdir))
+                logger.info("removing existing output: {}".format(outdir))
                 folder.rmtree(outdir)
             folder.makedirs(outdir)
             if separate_dir and parent_dir is not None:
@@ -244,20 +250,22 @@ def _deploy_run_normal(run, root_path, exists_error=False, parent_dir=None, pare
 
         # run commands
         for cmndline in cmnds:
-            folder.exec_cmnd(cmndline, outdir) # TODO report run["id"] where it failed
+            logging.info("executing: {}".format(cmndline))
+            folder.exec_cmnd(cmndline, outdir, raise_error=exec_errors) # TODO report run["id"] where it failed
+            logging.info("finished execution")
 
         # cleanup output
         if run["output"]["remove"] is not None:
             for path in run["output"]["remove"]:
                 rmpath = os.path.join(outdir, path)
                 if folder.exists(rmpath):
-                    logging.debug("removing {0} from output".format(rmpath))
+                    logger.debug("removing {0} from output".format(rmpath))
                     if folder.isdir(rmpath):
                         folder.rmtree(rmpath)
                     else:
                         folder.remove(rmpath)
                 for gpath in folder.glob("*{}".format(rmpath)):
-                    logging.debug("removing {0} from output".format(gpath))
+                    logger.debug("removing {0} from output".format(gpath))
                     folder.remove(gpath)
 
         if run["output"]["rename"] is not None:
@@ -265,11 +273,11 @@ def _deploy_run_normal(run, root_path, exists_error=False, parent_dir=None, pare
                 renamedir = os.path.join(outdir, "*{}".format(old))
                 for path in folder.glob(renamedir):
                     newname = os.path.basename(path)[:-len(old)] + new
-                    logging.debug("renaming {0} to {1}".format(path, newname))
+                    logger.debug("renaming {0} to {1}".format(path, newname))
                     folder.rename(path, newname)
 
     for child_run in run["children"]:
-        _deploy_run_normal(child_run, root_path, exists_error=exists_error,
+        _deploy_run_normal(child_run, root_path, exists_error=exists_error, exec_errors=exec_errors,
                            parent_dir=outdir, parent_kwargs=kwargs, separate_dir=separate_dir)
 
 
@@ -412,7 +420,7 @@ def _create_qsub(qsub, wrkpath, fnames, execruns, copyregex):
 
 
 # TODO children
-def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent_kwargs=None, separate_dir=False):
+def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, parent_dir=None, parent_kwargs=None, separate_dir=False):
     """ deploy run and child runs (recursively)
 
     Parameters
@@ -423,6 +431,8 @@ def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent
         the path to resolve (local) relative paths from
     exists_error: bool
         if True, raise an IOError if the output path already exists
+    exec_errors: bool
+        if True, raise Error if exec commands return with errorcode
     parent_dir: str or None
         the parent output directory (if dependant on another run's output)
      parent_kwargs : dict
@@ -432,7 +442,7 @@ def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent
     -------
 
     """
-    logging.info("gathering inputs for qsub run: {0}: {1}".format(run["id"], run["name"]))
+    logger.info("gathering inputs for qsub run: {0}: {1}".format(run["id"], run["name"]))
 
     # get inputs
     variables, files, scripts = _get_inputs(run, root_path)
@@ -460,15 +470,15 @@ def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent
         else:
             outpath = run["output"]["path"]
         if run["output"]["remote"] is None:
-            logging.info("running locally: {0}: {1}".format(run["id"], run["name"]))
+            logger.info("running locally: {0}: {1}".format(run["id"], run["name"]))
             kwargs = dict(path=root_path.joinpath(outpath))
         else:
-            logging.info("running remotely: {0}: {1}".format(run["id"], run["name"]))
+            logger.info("running remotely: {0}: {1}".format(run["id"], run["name"]))
             remote = run["output"]["remote"].copy()
             hostname = remote.pop("hostname")
             kwargs = dict(path=outpath, remote=True, hostname=hostname, **remote)
     else:
-        logging.info("running child: {0}: {1}".format(run["id"], run["name"]))
+        logger.info("running child: {0}: {1}".format(run["id"], run["name"]))
         kwargs = parent_kwargs
 
     with context_folder.change_dir(**kwargs) as folder:
@@ -478,7 +488,7 @@ def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent
         if folder.exists(outdir):
             if exists_error:
                 raise IOError("output dir already exists: {}".format(outdir))
-            logging.info("removing existing output: {}".format(outdir))
+            logger.info("removing existing output: {}".format(outdir))
             folder.rmtree(outdir)
         folder.makedirs(outdir)
 
@@ -501,4 +511,4 @@ def _deploy_run_qsub(run, root_path, exists_error=False, parent_dir=None, parent
 
         # run
         # TODO should do this more flexibly
-        folder.exec_cmnd("source /etc/bashrc; source /etc/profile; qsub run.qsub", outdir)
+        folder.exec_cmnd("source /etc/bashrc; source /etc/profile; qsub run.qsub", outdir, raise_error=exec_errors)

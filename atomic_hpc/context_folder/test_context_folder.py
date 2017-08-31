@@ -2,18 +2,17 @@ import os
 import shutil
 import pytest
 import inspect
+import logging
+
+import sys
 from jsonextended.utils import MockPath
-from atomic_hpc.context_folder import change_dir, splitall, LocalPath, RemotePath
+from atomic_hpc.context_folder import change_dir, LocalPath, RemotePath
 from atomic_hpc.mockssh import mockserver
 # python 3 to 2 compatibility
 try:
     import pathlib
 except ImportError:
     import pathlib2 as pathlib
-
-
-def test_splitall():
-    assert splitall('a/b/c') == ['a', 'b', 'c']
 
 
 def test_consistent():
@@ -149,7 +148,29 @@ def test_context_methods2(context):
 def test_exec_fail(context):
     testdir, _ = context
 
+    testdir.exec_cmnd("kjblkblkjb", raise_error=False)
     with pytest.raises(RuntimeError):
-        testdir.exec_cmnd("kjblkblkjb")
+        testdir.exec_cmnd("kjblkblkjb", raise_error=True)
+
+
+def test_exec_longer_cmnd(context):
+    testdir, _ = context
+    # TODO timeout not working with local, maybe use something like this: https://stackoverflow.com/a/4825933/5033292
+    # with pytest.raises(Exception):
+    #     testdir.exec_cmnd("sleep 6", timeout=1)
+    testdir.exec_cmnd("sleep 5")
+
+
+def test_exec_cmnd_with_stderr(context):
+    testdir, _ = context
+    testdir.exec_cmnd("echo This message goes to stdout >&1")
+    testdir.exec_cmnd("echo This message goes to stderr >&2")
+
+
+def test_exec_cmnd_multiline_output(context):
+    testdir, _ = context
+    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO, stream=sys.stdout)
+    testdir.exec_cmnd('for ((i = 0 ; i < 4 ; i++ )); do echo "abc" >&1; echo "efg" >&2; sleep 1; done')
+
 
 

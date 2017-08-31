@@ -436,7 +436,7 @@ def test_run_deploy_qsub_fail(context):
     run["environment"] = "qsub"
 
     with pytest.raises(RuntimeError):
-        _deploy_run_qsub(top_level[0], path)
+        _deploy_run_qsub(top_level[0], path, exec_errors=True)
 
 def test_run_deploy_qsub_pass(context):
     top_level, path = context
