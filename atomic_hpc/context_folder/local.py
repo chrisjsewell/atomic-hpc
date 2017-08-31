@@ -392,6 +392,13 @@ class LocalPath(VirtualDir):
         """
         logger.debug("executing command in {0}: {1}".format(path, cmnd))
 
+        security = self.check_cmndline_security(cmnd)
+        if security is not None:
+            if raise_error:
+                raise RuntimeError(security)
+            logging.error(security)
+            return False
+
         runpath = self._root.joinpath(path)
         runpath.absolute()
         with self._exec_in_dir(runpath):

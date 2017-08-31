@@ -1,5 +1,6 @@
 import os
 from contextlib import contextmanager
+from fnmatch import fnmatch
 
 
 class VirtualDir(object):
@@ -213,6 +214,52 @@ class VirtualDir(object):
 
         """
         raise NotImplementedError
+
+
+    # TODO improve command line security: https://security.openstack.org/guidelines/dg_avoid-shell-true.html,
+    # https://docs.python.org/3/library/shlex.html#shlex.quote
+    @staticmethod
+    def check_cmndline_security(line):
+        """ some basic security checks for the command line to be run
+
+        Parameters
+        ----------
+        line
+
+        Returns
+        -------
+
+        Notes
+        -----
+        https://www.tecmint.com/10-most-dangerous-commands-you-should-never-execute-on-linux/
+
+        """
+        security_risks = [
+            "rm -rf / ",
+            "rm -rf /;",
+            ":(){:|:&};:",
+            " > /dev/sda",
+            " > /dev/hda",
+            "mv * /dev/null",
+            "mkfs.ext3 /dev/sda",
+            "mkfs.ext3 /dev/hda",
+            "dd if=/dev/random of=/dev/sda",
+            "dd if=/dev/zero of=/dev/hda",
+            "dd if=/dev/zero of=/dev/sda",
+            "mv / /dev/null",
+            "dd if=/dev/random of=/dev/port",
+            "echo 1 > /proc/sys/kernel/panic",
+            "cat /dev/port",
+            "cat /dev/zero > /dev/mem",
+            "wget * -O- | sh",
+            "rm -f /usr/bin/sudo",
+            "rm -f /bin/su",
+        ]
+        for srisk in security_risks:
+            if fnmatch(line, "*{}*".format(srisk)):
+                return "command line contains security risk: {}".format(srisk)
+
+        return None
 
     def exec_cmnd(self, path, cmnd, raise_error=False, timeout=None):
         """

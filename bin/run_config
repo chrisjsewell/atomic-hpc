@@ -1,4 +1,99 @@
 #!/usr/bin/env python
+import os
+import sys
+import argparse
+import logging
+import logging.handlers
+from atomic_hpc.config_yaml import runs_from_config
+from atomic_hpc.deploy_runs import deploy_runs
+
+# class MyParser(argparse.ArgumentParser):
+#     def error(self, message):
+#         sys.stderr.write('error: %s\n' % message)
+#         self.print_help()
+#         sys.exit(2)
+
+
+def run(fpath, basepath="", log_level='INFO', out_abort=False,
+        exec_abort=False, sep_dir=False):
+    """
+
+    Parameters
+    ----------
+    fpath: str
+    basepath: str
+    log_level: str
+    out_abort: bool
+        if True, raise an IOError if the output path already exists
+    exec_abort: bool
+        if True, raise Error if exec commands return with errorcode
+    sep_dir: bool
+        for local:
+        if True and parent_dir is not None, the run will take place in the parent_dir
+        if False and parent_dir is not None, the contents of the parent_dir will be copied to the output folder
+
+    Returns
+    -------
+
+    """
+
+    root = logging.getLogger()
+    root.handlers = []  # remove any existing handlers
+    root.setLevel(logging.DEBUG)
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(getattr(logging, log_level.upper()))
+    # TODO align messages
+    formatter = logging.Formatter('%(levelname)8s: %(module)10s: %(message)s')
+    stream_handler.setFormatter(formatter)
+    stream_handler.propogate = False
+    stream_handler.addFilter(logging.Filter('atomic_hpc'))
+    root.addHandler(stream_handler)
+
+    # TODO add option for file logger
+    # file_handler = logging.FileHandler(os.path.join(outdir, ipynb_name + '.config.log'), 'w')
+    # file_handler.setLevel(getattr(logging, log_level.upper()))
+    # file_handler.setFormatter(formatter)
+    # file_handler.propogate = False
+    # file_handler.addFilter(logging.Filter('atomic_hpc'))
+    # root.addHandler(file_handler)
+
+    fpath = os.path.abspath(fpath)
+    basepath = os.path.abspath(basepath)
+
+    toplevel = runs_from_config(fpath)
+    deploy_runs(toplevel, basepath, exists_error=out_abort, exec_errors=exec_abort, separate_dir=sep_dir)
+
+
+class ErrorParser(argparse.ArgumentParser):
+    """
+    on error; print help string
+    """
+    def error(self, message):
+        sys.stderr.write('error: %s\n' % message)
+        self.print_help()
+        sys.exit(2)
 
 if __name__ == "__main__":
-    pass
+
+    parser = ErrorParser(
+        description='use a config.yaml file to run process on a local or remote host'
+    )
+    parser.add_argument("configpath", type=str,
+                        help='yaml config file path', metavar='filepath')
+    parser.add_argument("-log", "--log-level", type=str, default='info',
+                        choices=['debug', 'info', 'warning', 'error'],
+                        help='the logging level to output to screen/file')
+    parser.add_argument("-b", "--basepath", type=str, metavar='str',
+                        help='path to use when resolving relative paths in the config file',
+                        default=os.getcwd())
+    parser.add_argument("-oa", "--out-abort", action="store_true",
+                        help='abort the run if its output path already exists')
+    parser.add_argument("-ea", "--exec-abort", action="store_true",
+                        help='abort the run if a command line execution fails')
+    parser.add_argument("-sd", "--sep-dir", action="store_true",
+                        help='create a separate output directory for child runs')
+
+    args = parser.parse_args()
+    options = vars(args)
+    filepath = options.pop('configpath')
+    run(filepath, **options)

@@ -336,6 +336,7 @@ class RemotePath(VirtualDir):
         exitcode:
 
         """
+
         stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
         channel = stdout.channel
 
@@ -396,6 +397,13 @@ class RemotePath(VirtualDir):
 
         """
         logger.debug("executing command in {0}: {1}".format(path, cmnd))
+
+        security = self.check_cmndline_security(cmnd)
+        if security is not None:
+            if raise_error:
+                raise RuntimeError(security)
+            logging.error(security)
+            return False
 
         if not self.exists(path):
             raise IOError("path doesn't exist: {}".format(path))

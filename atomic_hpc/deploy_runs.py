@@ -35,7 +35,7 @@ def deploy_runs(top_level_runs, config_path, exists_error=False, exec_errors=Fal
     top_level_runs: list
         top level runs
     config_path: str or path_like
-        the _path of the config file
+        the path of the config file
     exists_error: bool
         if True, raise an IOError if the output path already exists
     exec_errors: bool
@@ -226,13 +226,16 @@ def _deploy_run_normal(run, root_path, exists_error=False, exec_errors=False, pa
 
     with context_folder.change_dir(**kwargs) as folder:
 
+        logger.info("executing run: {0}: {1}".format(run["id"], run["name"]))
+
         # create output folder
         if parent_dir is None or separate_dir:
             outdir = "{0}_{1}".format(run["id"], run["name"])
             if folder.exists(outdir):
                 if exists_error:
-                    raise IOError("output dir already exists: {}".format(outdir))
-                logger.info("removing existing output: {}".format(outdir))
+                    logger.critical("aborting run: output dir already exists: {}".format(outdir))
+                    return False
+                logger.info("removing existing output dir: {}".format(outdir))
                 folder.rmtree(outdir)
             folder.makedirs(outdir)
             if separate_dir and parent_dir is not None:
@@ -251,8 +254,17 @@ def _deploy_run_normal(run, root_path, exists_error=False, exec_errors=False, pa
         # run commands
         for cmndline in cmnds:
             logging.info("executing: {}".format(cmndline))
-            folder.exec_cmnd(cmndline, outdir, raise_error=exec_errors) # TODO report run["id"] where it failed
+            try:
+                folder.exec_cmnd(cmndline, outdir, raise_error=True)
+            except RuntimeError:
+                if exec_errors:
+                    logger.critical("aborting run on command line failure: {}".format(cmndline))
+                    return False
+                logger.error("command line failure: {}".format(cmndline))
+
             logging.info("finished execution")
+
+        logger.info("finalising run: {0}: {1}".format(run["id"], run["name"]))
 
         # cleanup output
         if run["output"]["remove"] is not None:
@@ -420,7 +432,7 @@ def _create_qsub(qsub, wrkpath, fnames, execruns, copyregex):
 
 
 # TODO children
-def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, parent_dir=None, parent_kwargs=None, separate_dir=False):
+def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, parent_dir=None, separate_dir=False):
     """ deploy run and child runs (recursively)
 
     Parameters
@@ -435,8 +447,8 @@ def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, pare
         if True, raise Error if exec commands return with errorcode
     parent_dir: str or None
         the parent output directory (if dependant on another run's output)
-     parent_kwargs : dict
-        the parent keyword arguments to connect to the output directory (if dependant on another run's output)
+     # parent_kwargs : dict
+     #    the parent keyword arguments to connect to the output directory (if dependant on another run's output)
 
     Returns
     -------
@@ -462,33 +474,32 @@ def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, pare
             copyregex.append("*"+regex)
 
     # open output
-    if parent_kwargs is None:
-        if isinstance(root_path, basestring):
-            root_path = pathlib.Path(root_path)
-        if run["output"]["path"] is None:
-            outpath = ""
-        else:
-            outpath = run["output"]["path"]
-        if run["output"]["remote"] is None:
-            logger.info("running locally: {0}: {1}".format(run["id"], run["name"]))
-            kwargs = dict(path=root_path.joinpath(outpath))
-        else:
-            logger.info("running remotely: {0}: {1}".format(run["id"], run["name"]))
-            remote = run["output"]["remote"].copy()
-            hostname = remote.pop("hostname")
-            kwargs = dict(path=outpath, remote=True, hostname=hostname, **remote)
+    if isinstance(root_path, basestring):
+        root_path = pathlib.Path(root_path)
+    if run["output"]["path"] is None:
+        outpath = ""
     else:
-        logger.info("running child: {0}: {1}".format(run["id"], run["name"]))
-        kwargs = parent_kwargs
+        outpath = run["output"]["path"]
+    if run["output"]["remote"] is None:
+        logger.info("running locally: {0}: {1}".format(run["id"], run["name"]))
+        kwargs = dict(path=root_path.joinpath(outpath))
+    else:
+        logger.info("running remotely: {0}: {1}".format(run["id"], run["name"]))
+        remote = run["output"]["remote"].copy()
+        hostname = remote.pop("hostname")
+        kwargs = dict(path=outpath, remote=True, hostname=hostname, **remote)
 
     with context_folder.change_dir(**kwargs) as folder:
+
+        logger.info("executing qsub run: {0}: {1}".format(run["id"], run["name"]))
 
         # create output folder
         outdir = "{0}_{1}".format(run["id"], run["name"])
         if folder.exists(outdir):
             if exists_error:
-                raise IOError("output dir already exists: {}".format(outdir))
-            logger.info("removing existing output: {}".format(outdir))
+                logger.critical("aborting run: output dir already exists: {}".format(outdir))
+                return False
+            logger.info("removing existing output dir: {}".format(outdir))
             folder.rmtree(outdir)
         folder.makedirs(outdir)
 
@@ -510,5 +521,13 @@ def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, pare
             f.write(unicode(qsub))
 
         # run
-        # TODO should do this more flexibly
-        folder.exec_cmnd("source /etc/bashrc; source /etc/profile; qsub run.qsub", outdir, raise_error=exec_errors)
+        # TODO should do source loading more flexibly
+        # TODO something is not loaded to get emails
+        cmndline = "source /etc/bashrc; source /etc/profile; qsub run.qsub"
+        try:
+            folder.exec_cmnd(cmndline, outdir, raise_error=True)
+        except RuntimeError:
+            if exec_errors:
+                logger.critical("aborting run on command line failure: {}".format(cmndline))
+                return False
+            logger.error("command line failure: {}".format(cmndline))
