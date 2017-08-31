@@ -367,6 +367,7 @@ class LocalPath(VirtualDir):
         finally:
             queue.put(None)
 
+    # TODO timeout doesn't work in wait
     def exec_cmnd(self, cmnd, path='.', raise_error=False, timeout=None):
         """ perform a command line execution
 
@@ -385,6 +386,7 @@ class LocalPath(VirtualDir):
 
         Notes
         -----
+        queuing allows stdout and stderr to output as separate streams, but in (almost) the right order
         based on: https://stackoverflow.com/a/31867499/5033292
 
         """

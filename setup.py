@@ -54,7 +54,7 @@ with io.open('README.rst') as readme:
                 "server-key",
                 "server-key.pub",
                 "wrong-user-key"
-            ]
+            ],
         },
         scripts=['bin/run_config'],
     )
