@@ -49,8 +49,15 @@ example_run_local = """runs:
     environment: unix
     requires: 1
     
+    input:
+        files:
+          other: input/other.in
+
     process:
         unix:
+          run:
+            - echo test_echo2 > output2.txt
+        qsub:
           run:
             - echo test_echo2 > output2.txt
 """
@@ -104,12 +111,18 @@ example_run_remote = """runs:
     environment: unix
     requires: 1
     
+    input:
+        files:
+          other: input/other.in
+
     process:
         unix:
           run:
             - echo test_echo2 > output2.txt
     
-
+        qsub:
+          run:
+            - echo test_echo2 > output2.txt
 """
 
 @pytest.fixture("function")
@@ -129,6 +142,8 @@ def local_pathlib():
             f.write('test @v{var1}\n @f{frag1}')
     with open(os.path.join(inpath, 'frag.in'), 'w') as f:
         f.write('replace\n frag')
+    with open(os.path.join(inpath, 'other.in'), 'w') as f:
+        f.write('another file')
 
     yield runs_from_config(configpath), test_folder
 
@@ -141,7 +156,8 @@ def local_mock():
                            structure=[config_file,
                                       {"input": [
                                           MockPath('script.in', is_file=True, content='test @v{var1}\n @f{frag1}'),
-                                          MockPath('frag.in', is_file=True, content='replace\n frag')
+                                          MockPath('frag.in', is_file=True, content='replace\n frag'),
+                                          MockPath('other.in', is_file=True, content='another file'),
                                       ]}])
 
     yield runs_from_config(config_file), test_folder
@@ -160,6 +176,8 @@ def remote():
         f.write('test @v{var1}\n @f{frag1}')
     with open(os.path.join(inpath, 'frag.in'), 'w') as f:
         f.write('replace\n frag')
+    with open(os.path.join(inpath, 'other.in'), 'w') as f:
+        f.write('another file')
 
     with mockserver.Server({"user": {"password": "password"}}, test_folder) as server:
 
@@ -266,19 +284,30 @@ def test_run_deploy_normal_samefolder(context):
        environment: unix
        requires: 1
        
+       input:
+           files:
+             other: input/other.in
+   
        process:
            unix:
+             run:
+               - echo test_echo2 > output2.txt
+           qsub:
              run:
                - echo test_echo2 > output2.txt
   Folder("input")
     File("frag.in") Contents:
      replace
       frag
+    File("other.in") Contents:
+     another file
     File("script.in") Contents:
      test @v{var1}
       @f{frag1}
   Folder("output")
     Folder("1_run_local")
+      File("other.in") Contents:
+       another file
       File("output.other") Contents:
        test_echo
       File("output2.txt") Contents:
@@ -342,14 +371,23 @@ def test_run_deploy_normal_separate_folder(context):
        environment: unix
        requires: 1
        
+       input:
+           files:
+             other: input/other.in
+   
        process:
            unix:
+             run:
+               - echo test_echo2 > output2.txt
+           qsub:
              run:
                - echo test_echo2 > output2.txt
   Folder("input")
     File("frag.in") Contents:
      replace
       frag
+    File("other.in") Contents:
+     another file
     File("script.in") Contents:
      test @v{var1}
       @f{frag1}
@@ -362,6 +400,8 @@ def test_run_deploy_normal_separate_folder(context):
         replace
         frag
     Folder("2_run_local_child")
+      File("other.in") Contents:
+       another file
       File("output.other") Contents:
        test_echo
       File("output2.txt") Contents:
@@ -379,9 +419,14 @@ def test_create_qsub(context):
     qsub = top_level[0]["process"]["qsub"]
     qsub["jobname"] = "1_test"
 
-    out = _create_qsub(qsub, "path/to/dir", ["test.txt", "other.txt"], ["mpiexec something"], ["*"])
-    #assert "#PBS -N 1_test" in out
-    #assert "#PBS -l walltime=1:10:00" in out
+    out = _create_qsub(qsub, "path/to/dir",
+                       {(1, "test_run"): {"modules": qsub["modules"],
+                            "fnames": ["test.txt", "other.txt"],
+                            "copyregex": ["*"],
+                            "execruns": ["mpiexec something"]}})
+
+    # assert "#PBS -N 1_test" in out
+    # assert "#PBS -l walltime=1:10:00" in out
     expected = """#!/bin/bash --login
 #PBS -N 1_test
 #PBS -l walltime=1:10:00
@@ -406,24 +451,23 @@ export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
 #   using threading.
 export OMP_NUM_THREADS=1
 
+1 - test_run
+============
+echo Running: 1 - test_run
+============
+
+# load required modules
 module load quantum-espresso intel-suite mpi
-
-# commands to run before main run (in $WORKDIR)
-
 
 # copy required input files from $WORKDIR to $TMPDIR
 cp -p path/to/dir/test.txt $TMPDIR
 cp -p path/to/dir/other.txt $TMPDIR
-
 
 # main commands to run (in $TMPDIR)
 mpiexec something
 
 # copy required output files from $TMPDIR to $WORKDIR
 cp -pR $TMPDIR/* path/to/dir 
-
-
-# commands to run after main run (in $WORKDIR)
 
 
 """
@@ -437,6 +481,7 @@ def test_run_deploy_qsub_fail(context):
 
     #with pytest.raises(RuntimeError):
     assert _deploy_run_qsub(top_level[0], path, exec_errors=True) == False
+
 
 def test_run_deploy_qsub_pass(context):
     top_level, path = context
@@ -452,10 +497,12 @@ def test_run_deploy_qsub_pass(context):
   File("config.yml")
   Folder("input")
     File("frag.in")
+    File("other.in")
     File("script.in")
   Folder("output")
     Folder("1_run_local")
       File("frag.in")
+      File("other.in")
       File("run.qsub")
       File("script.in")"""
         assert path.to_string() == expected_struct
@@ -485,15 +532,17 @@ export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
 #   using threading.
 export OMP_NUM_THREADS=1
 
+1 - run_local
+=============
+echo Running: 1 - run_local
+=============
+
+# load required modules
 module load quantum-espresso intel-suite mpi
-
-# commands to run before main run (in $WORKDIR)
-
 
 # copy required input files from $WORKDIR to $TMPDIR
 cp -p test_tmp/output/1_run_local/script.in $TMPDIR
 cp -p test_tmp/output/1_run_local/frag.in $TMPDIR
-
 
 # main commands to run (in $TMPDIR)
 mpiexec pw.x -i script2.in > main.qe.scf.out
@@ -502,7 +551,21 @@ mpiexec pw.x -i script2.in > main.qe.scf.out
 cp -pR $TMPDIR/*.other.out test_tmp/output/1_run_local 
 
 
-# commands to run after main run (in $WORKDIR)
+2 - run_local_child
+===================
+echo Running: 2 - run_local_child
+===================
+
+# load required modules
+
+
+# copy required input files from $WORKDIR to $TMPDIR
+cp -p test_tmp/output/1_run_local/other.in $TMPDIR
+
+# main commands to run (in $TMPDIR)
+echo test_echo2 > output2.txt
+
+# copy required output files from $TMPDIR to $WORKDIR
 
 """
 

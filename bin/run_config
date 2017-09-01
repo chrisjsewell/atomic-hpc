@@ -91,7 +91,7 @@ if __name__ == "__main__":
     parser.add_argument("-ea", "--exec-abort", action="store_true",
                         help='abort the run if a command line execution fails')
     parser.add_argument("-sd", "--sep-dir", action="store_true",
-                        help='create a separate output directory for child runs')
+                        help='create a separate output directory for child runs (not available for qsub)')
 
     args = parser.parse_args()
     options = vars(args)

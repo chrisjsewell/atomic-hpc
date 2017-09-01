@@ -5,6 +5,7 @@ import copy
 import os
 import logging
 import re
+from collections import OrderedDict
 # python 2/3 compatibility
 try:
     basestring
@@ -199,6 +200,10 @@ def _deploy_run_normal(run, root_path, exists_error=False, exec_errors=False, pa
 
     # get inputs
     variables, files, scripts = _get_inputs(run, root_path)
+    fnames = list(scripts.keys()) + list(files.keys())
+    if not len(set(fnames)) == len(fnames):
+        logging.critical("aborting run: there is a script or file name clash in the inputs: {}".format(fnames))
+        return False
 
     # get commands
     environment = run["environment"]
@@ -317,10 +322,13 @@ export PBS_O_WORKDIR=$(readlink -f $PBS_O_WORKDIR)
 #   using threading.
 export OMP_NUM_THREADS=1
 
-{load_modules}
+{runs}"""
 
-# commands to run before main run (in $WORKDIR)
-{exec_before_run}
+_qsub_run_template = """{run_name}
+echo Running: {run_name}
+
+# load required modules
+{load_modules}
 
 # copy required input files from $WORKDIR to $TMPDIR
 {copy_to_temp}
@@ -330,9 +338,6 @@ export OMP_NUM_THREADS=1
 
 # copy required output files from $TMPDIR to $WORKDIR
 {copy_from_temp}
-
-# commands to run after main run (in $WORKDIR)
-{exec_after_run}
 
 """
 
@@ -365,7 +370,7 @@ def _resolve_walltime(walltime):
         return ':'.join([components[0], "00", "00"])
 
 
-def _create_qsub(qsub, wrkpath, fnames, execruns, copyregex):
+def _create_qsub(qsub, wrkpath, resources):
     """
 
     Parameters
@@ -373,13 +378,14 @@ def _create_qsub(qsub, wrkpath, fnames, execruns, copyregex):
     qsub: dict
     wrkpath: str
         absolute path of working directory
-    fnames: list of str
-        input file names
-    execruns: list of str
-        commands to run
-    copyregex: list of str
-        regexes to specify files to copy back to working directory
-
+    resources: collection.OrderedDict
+        containing:
+            fnames: list of str
+                input file names
+            execruns: list of str
+                commands to run
+            copyregex: list of str
+                regexes to specify files to copy back to working directory
 
     Returns
     -------
@@ -401,37 +407,87 @@ def _create_qsub(qsub, wrkpath, fnames, execruns, copyregex):
         pbs_optional += "#PBS -M {}\n".format(qsub["email"])
         pbs_optional += "#PBS -m bae\n"
 
-    # get modules to load
-    load_modules = "module load " + " ".join(qsub["modules"]) if qsub["modules"] is not None else ""
+    runs = ""
 
-    # commands to run before run (in $WORKDIR)
-    exec_before_run = "" # TODO
+    for (rid, name), resource in resources.items():
 
-    # copy to temp
-    copy_to_temp = ""
-    for name in fnames:
-        copy_to_temp += "cp -p {0} $TMPDIR\n".format(os.path.join(wrkpath, name))
+        run_name = "{0} - {1}".format(rid, name)
+        run_name += "\n" + "="*len(run_name)
 
-    # exec runs (in $TMPDIR)
-    exec_run = "\n".join(execruns)
+        # get modules to load
+        load_modules = "module load " + " ".join(resource["modules"]) if resource["modules"] is not None else ""
 
-    # copy from temp
-    copy_from_temp = ""
-    for regex in copyregex:
-        copy_from_temp += "cp -pR $TMPDIR/{0} {1} \n".format(regex, wrkpath)
+        # commands to run before run (in $WORKDIR)
+        #exec_before_run = ""  # TODO exec_before_run
 
-    # commands to run after run (in $WORKDIR)
-    exec_after_run = "" # TODO
+        # copy to temp
+        copy_to_temp = "\n".join(["cp -p {0} $TMPDIR".format(os.path.join(wrkpath, name))
+                                  for name in resource["fnames"]])
+
+        # exec runs (in $TMPDIR)
+        exec_run = "\n".join(resource["execruns"])
+
+        # copy from temp
+        copy_from_temp = ""
+        for regex in resource["copyregex"]:
+            copy_from_temp += "cp -pR $TMPDIR/{0} {1} \n".format(regex, wrkpath)
+
+        # commands to run after run (in $WORKDIR)
+        #exec_after_run = ""  # TODO exec_after_run
+
+        runs += _qsub_run_template.format(run_name=run_name, load_modules=load_modules,
+                                          copy_to_temp=copy_to_temp,  exec_run=exec_run, copy_from_temp=copy_from_temp)
+                                          #exec_after_run=exec_after_run, exec_before_run=exec_before_run)
 
     out = _qsub_top_template.format(jobname=jobname, walltime=walltime, nnodes=nnodes,
-                                    ncores=ncores, nprocs=nprocs, pbs_optional=pbs_optional, load_modules=load_modules,
-                                    exec_before_run=exec_before_run, copy_to_temp=copy_to_temp,
-                                    exec_run=exec_run, copy_from_temp=copy_from_temp, exec_after_run=exec_after_run)
-
+                                    ncores=ncores, nprocs=nprocs, pbs_optional=pbs_optional, runs=runs)
+    print(out)
     return out
 
 
-# TODO children
+def _recursive_inputs(run, root_path, resources, fnames=None):
+
+    print("gathering inputs for qsub run: {0}: {1}".format(run["id"], run["name"]))
+    if fnames is None:
+        fnames = []
+
+    logger.info("gathering inputs for qsub run: {0}: {1}".format(run["id"], run["name"]))
+
+    # get inputs
+    variables, files, scripts = _get_inputs(run, root_path)
+
+    fnames += list(scripts.keys()) + list(files.keys())
+    if not len(set(fnames)) == len(fnames):
+        logging.error("there is a script or file name clash in the inputs: {}".format(fnames))
+        raise ValueError("there is a script or file name clash in the inputs: {}".format(fnames))
+
+    # get commands
+    # cmnds_before = [_replace_in_cmnd(cmnd, variables, run["id"]) for cmnd in run["process"]["qsub"]["before_run"]]
+    if run["process"]["qsub"]["run"] is not None:
+        cmnds_run = [_replace_in_cmnd(cmnd, variables, run["id"]) for cmnd in run["process"]["qsub"]["run"]]
+    else:
+        cmnds_run = []
+    # cmnds_after = [_replace_in_cmnd(cmnd, variables, run["id"]) for cmnd in run["process"]["qsub"]["after_run"]]
+
+    # get from_temp
+    copyregex = []
+    if run["process"]["qsub"]["from_temp"] is not None:
+        for regex in run["process"]["qsub"]["from_temp"]:
+            if regex.startswith("*"):
+                copyregex.append(regex)
+            else:
+                copyregex.append("*"+regex)
+
+    resources[(run["id"], run["name"])] = {"files": files, "scripts": scripts,
+                            "fnames": list(scripts.keys()) + list(files.keys()),
+                            "execruns": cmnds_run, "copyregex": copyregex,
+                            "modules": run["process"]["qsub"]["modules"]}
+
+    for child_run in run["children"]:
+        _recursive_inputs(child_run, root_path, resources, fnames)
+
+
+# TODO separate_dir
 def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, parent_dir=None, separate_dir=False):
     """ deploy run and child runs (recursively)
 
@@ -454,24 +510,12 @@ def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, pare
     -------
 
     """
-    logger.info("gathering inputs for qsub run: {0}: {1}".format(run["id"], run["name"]))
-
-    # get inputs
-    variables, files, scripts = _get_inputs(run, root_path)
-    fnames = list(scripts.keys()) + list(files.keys())
-
-    # get commands
-    # cmnds_before = [_replace_in_cmnd(cmnd, variables, run["id"]) for cmnd in run["process"]["qsub"]["before_run"]]
-    cmnds_run = [_replace_in_cmnd(cmnd, variables, run["id"]) for cmnd in run["process"]["qsub"]["run"]]
-    # cmnds_after = [_replace_in_cmnd(cmnd, variables, run["id"]) for cmnd in run["process"]["qsub"]["after_run"]]
-
-    # get from_temp
-    copyregex = []
-    for regex in run["process"]["qsub"]["from_temp"]:
-        if regex.startswith("*"):
-            copyregex.append(regex)
-        else:
-            copyregex.append("*"+regex)
+    resources = OrderedDict()
+    try:
+        _recursive_inputs(run, root_path, resources)
+    except ValueError as err:
+        logger.critical("aborting run: exception raised during input gathering: {}".format(err))
+        return False
 
     # open output
     if isinstance(root_path, basestring):
@@ -503,19 +547,22 @@ def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, pare
             folder.rmtree(outdir)
         folder.makedirs(outdir)
 
-        for fname, fcontent in files.items():
-            with folder.open(os.path.join(outdir, fname), 'w') as f:
-                f.write(fcontent)
-        for sname, scontent in scripts.items():
-            with folder.open(os.path.join(outdir, sname), 'w') as f:
-                f.write(scontent)
+        for resource in resources.values():
+            files = resource.pop("files")
+            scripts = resource.pop("scripts")
+            for fname, fcontent in files.items():
+                with folder.open(os.path.join(outdir, fname), 'w') as f:
+                    f.write(fcontent)
+            for sname, scontent in scripts.items():
+                with folder.open(os.path.join(outdir, sname), 'w') as f:
+                    f.write(scontent)
 
         # make qsub
         if run["process"]["qsub"]["jobname"] is None:
             run["process"]["qsub"]["jobname"] = '{0}_{1}'.format(run["id"], run["name"])
 
         abspath = folder.getabs(outdir)
-        qsub = _create_qsub(run["process"]["qsub"], abspath, fnames, cmnds_run, copyregex)
+        qsub = _create_qsub(run["process"]["qsub"], abspath, resources)
 
         with folder.open(os.path.join(outdir, "run.qsub"), 'w') as f:
             f.write(unicode(qsub))
@@ -531,3 +578,5 @@ def _deploy_run_qsub(run, root_path, exists_error=False, exec_errors=False, pare
                 logger.critical("aborting run on command line failure: {}".format(cmndline))
                 return False
             logger.error("command line failure: {}".format(cmndline))
+
+    return True
