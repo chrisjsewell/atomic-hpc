@@ -86,9 +86,9 @@ def local_pathlib():
     inpath = os.path.join(test_folder, "input")
     os.mkdir(inpath)
     with open(os.path.join(inpath, 'script.in'), 'w') as f:
-            f.write('test @v{var1}\n @f{frag1}')
+            f.write('test @v{var1} @f{frag1}')
     with open(os.path.join(inpath, 'frag.in'), 'w') as f:
-        f.write('replace\n frag')
+        f.write('replace frag')
     with open(os.path.join(inpath, 'other.in'), 'w') as f:
         f.write('another file')
 
@@ -101,8 +101,8 @@ def local_mock():
     test_folder = MockPath("test_tmp",
                            structure=[config_file,
                                       {"input": [
-                                          MockPath('script.in', is_file=True, content='test @v{var1}\n @f{frag1}'),
-                                          MockPath('frag.in', is_file=True, content='replace\n frag'),
+                                          MockPath('script.in', is_file=True, content='test @v{var1} @f{frag1}'),
+                                          MockPath('frag.in', is_file=True, content='replace frag'),
                                           MockPath('other.in', is_file=True, content='another file'),
                                       ]}])
 
@@ -119,9 +119,9 @@ def remote():
     inpath = os.path.join(test_folder, "input")
     os.mkdir(inpath)
     with open(os.path.join(inpath, 'script.in'), 'w') as f:
-        f.write('test @v{var1}\n @f{frag1}')
+        f.write('test @v{var1} @f{frag1}')
     with open(os.path.join(inpath, 'frag.in'), 'w') as f:
-        f.write('replace\n frag')
+        f.write('replace frag')
     with open(os.path.join(inpath, 'other.in'), 'w') as f:
         f.write('another file')
 
@@ -142,8 +142,8 @@ def context(request):
 def test_get_inputs(context):
     runs, path = context
     inputs = get_inputs(runs[0], path)
-    assert inputs["files"] == {'frag.in': 'replace\n frag', 'other.in': 'another file'}
-    assert inputs["scripts"] == {"script.in": 'test value\n replace\n frag'}
+    assert inputs["files"] == {'frag.in': 'replace frag', 'other.in': 'another file'}
+    assert inputs["scripts"] == {"script.in": 'test value replace frag'}
     assert inputs["cmnds"] == ["echo test_echo > output.txt", "cat script.in > output2.txt",
                                "mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt",
                                "mkdir deletefolder; echo c > deletefolder/some.text"]
@@ -244,13 +244,11 @@ def test_run_deploy_normal(context):
    
   Folder("input")
     File("frag.in") Contents:
-     replace
-      frag
+     replace frag
     File("other.in") Contents:
      another file
     File("script.in") Contents:
-     test @v{var1}
-      @f{frag1}
+     test @v{var1} @f{frag1}
   Folder("output")
     Folder("1_run_test_name")
       File("config_1.yaml") Contents:
@@ -303,20 +301,15 @@ def test_run_deploy_normal(context):
        id: 1
        name: run_test_name
       File("frag.in") Contents:
-       replace
-        frag
+       replace frag
       File("other.in") Contents:
        another file
       File("output.txt") Contents:
        test_echo
       File("output2.other") Contents:
-       test value
-        replace
-        frag
+       test value replace frag
       File("script.in") Contents:
-       test value
-        replace
-        frag
+       test value replace frag
       Folder("subfolder")
         File("dont_delete.txt") Contents:
          b"""
@@ -428,7 +421,7 @@ def test_run_deploy_qsub_pass_local(local_pathlib):
 
     outfile = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name/output2.other'))
     with outfile.open() as f:
-        assert "test value\n replace\n frag" == f.read()
+        assert "test value replace frag" == f.read()
 
 
 def test_run_deploy_qsub_pass_remote(remote):
@@ -457,4 +450,4 @@ def test_run_deploy_qsub_pass_remote(remote):
 
     outfile = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name/output2.other'))
     with outfile.open() as f:
-        assert "test value\n replace\n frag" == f.read()
+        assert "test value replace frag" == f.read()

@@ -21,13 +21,9 @@ from atomic_hpc.context_folder.abstract import VirtualDir
 from atomic_hpc.utils import walk_path, glob_path, splitall
 
 
-# for writing binary output to stdout
-if sys.platform == "win32":
-    import os, msvcrt
-    msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
-
-if sys.platform == "win64":
-    import os, msvcrt
+# for writing binary output to stdout on windows
+if sys.platform == "win32" or sys.platform == "win64":
+    import msvcrt
     msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
 
 
