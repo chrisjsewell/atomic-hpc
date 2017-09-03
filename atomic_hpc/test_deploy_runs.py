@@ -417,7 +417,8 @@ def test_run_deploy_qsub_pass_local(local_pathlib):
 
     # Travis doesn't allow setting global variable in command line
     if os.getenv('CI', False) and os.getenv('TMPDIR', False):
-        os.makedirs(os.environ['TMPDIR'])
+        if not os.path.exists(os.environ['TMPDIR']):
+            os.makedirs(os.environ['TMPDIR'])
         temppath = mkdtemp(dir=os.environ['TMPDIR'])
     else:
         temppath = mkdtemp()
@@ -455,7 +456,8 @@ def test_run_deploy_qsub_pass_remote(remote):
 
     # Travis doesn't allow setting global variable in command line
     if os.getenv('CI', False) and os.getenv('TMPDIR', False):
-        os.makedirs(os.environ['TMPDIR'])
+        if not os.path.exists(os.environ['TMPDIR']):
+            os.makedirs(os.environ['TMPDIR'])
         temppath = mkdtemp(dir=os.environ['TMPDIR'])
     else:
         temppath = mkdtemp()
