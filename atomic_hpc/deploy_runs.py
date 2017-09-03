@@ -170,6 +170,8 @@ def deploy_runs(runs, root_path, exists_error=False, exec_errors=False):
     Returns
     -------
     """
+    failed_runs = []
+
     for run in runs:
 
         logger.info("gathering inputs for run: {0}: {1}".format(run["id"], run["name"]))
@@ -180,14 +182,20 @@ def deploy_runs(runs, root_path, exists_error=False, exec_errors=False):
         fnames += list(inputs["files"].keys())
         if not len(set(fnames)) == len(fnames):
             logging.critical("aborting run: there is a script or file name clash in the inputs: {}".format(fnames))
+            failed_runs.append("{0}: {1}".format(run["id"], run["name"]))
             continue
 
         if run["environment"] in ["unix", "windows"]:
-            _deploy_run_normal(run, inputs, root_path, exists_error=exists_error, exec_errors=exec_errors)
+            if not _deploy_run_normal(run, inputs, root_path, exists_error=exists_error, exec_errors=exec_errors):
+                failed_runs.append("{0}: {1}".format(run["id"], run["name"]))
         elif run["environment"] == "qsub":
-            _deploy_run_qsub(run, inputs, root_path, exists_error=exists_error, exec_errors=exec_errors)
+            if not _deploy_run_qsub(run, inputs, root_path, exists_error=exists_error, exec_errors=exec_errors):
+                failed_runs.append("{0}: {1}".format(run["id"], run["name"]))
         else:
             raise ValueError("unknown environment: {}".format(run["environment"]))
+
+    if failed_runs:
+        raise RuntimeError("The following runs did not complete: \n{}".format("\n".join(failed_runs)))
 
 
 def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=False):
