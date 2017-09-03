@@ -358,6 +358,7 @@ echo Running: 1_run_test_name
 # load required modules
 module load quantum-espresso intel-suite mpi
 
+echo "running in ${TMPDIR}"
 cd $TMPDIR
 
 # copy required input files from $WORKDIR to $TMPDIR
@@ -438,14 +439,14 @@ def test_run_deploy_qsub_pass_remote(remote):
     temppath = mkdtemp()
     try:
         with mock.patch("atomic_hpc.deploy_runs._QSUB_CMNDLINE",
-                        "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(temppath)):
+                        "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath))):
             assert _deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == True
     finally:
         shutil.rmtree(temppath)
 
     outfile = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name/run.qsub'))
     with outfile.open() as f:
-        assert "test value replace frag" == f.read()
+        assert "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath)) == f.read()
 
     outpath = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name'))
     assert outpath.exists()
