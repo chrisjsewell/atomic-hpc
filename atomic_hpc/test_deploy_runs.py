@@ -192,132 +192,24 @@ def test_run_deploy_normal(context):
         assert os.path.exists(os.path.join(str(path), 'output/1_run_test_name/output2.other'))
     else:
         expected = """Folder("test_tmp")
-  File("config.yml") Contents:
-   runs:
-     - id: 1
-       name: run_test_name
-       environment: unix
-       
-       input:
-           scripts:
-             - input/script.in
-           variables:
-             var1: value
-           files:
-             frag1: input/frag.in
-             other: input/other.in
-           remote:
-               hostname: null
-               username: user
-               port: 1
-               password: password
-       
-       process:
-           unix:
-             run:
-               - echo test_echo > output.txt
-               - cat script.in > output2.txt
-               - mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt
-               - mkdir deletefolder; echo c > deletefolder/some.text
-           qsub:
-               walltime: 1:10
-               modules:
-                   - quantum-espresso
-                   - intel-suite
-                   - mpi
-               run: 
-                   - echo test_echo > output.txt
-                   - cat script.in > output2.txt
-                   - mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt
-                   - mkdir deletefolder; echo c > deletefolder/some.text
-               
-       output:
-         remote:
-            hostname: null
-            username: user
-            port: 1
-            password: password
-         remove:
-           - "*/to_delete.txt"
-           - deletefolder
-           - tmp.*
-         rename:
-           2.txt: 2.other
-   
+  File("config.yml")
   Folder("input")
-    File("frag.in") Contents:
-     replace frag
-    File("other.in") Contents:
-     another file
-    File("script.in") Contents:
-     test @v{var1} @f{frag1}
+    File("frag.in")
+    File("other.in")
+    File("script.in")
   Folder("output")
     Folder("1_run_test_name")
-      File("config_1.yaml") Contents:
-       description: ''
-       environment: unix
-       input:
-         path:
-         scripts:
-           - input/script.in
-         files:
-           frag1: input/frag.in
-           other: input/other.in
-         variables:
-           var1: value
-         remote:
-       output:
-         remote:
-         path: output
-         remove:
-           - '*/to_delete.txt'
-           - deletefolder
-           - tmp.*
-         rename:
-           2.txt: 2.other
-       process:
-         unix:
-           run:
-             - echo test_echo > output.txt
-             - cat script.in > output2.txt
-             - mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt
-             - mkdir deletefolder; echo c > deletefolder/some.text
-         windows:
-           run:
-         qsub:
-           jobname:
-           cores_per_node: 16
-           nnodes: 1
-           walltime: 1:10
-           queue:
-           email:
-           modules:
-             - quantum-espresso
-             - intel-suite
-             - mpi
-           run:
-             - echo test_echo > output.txt
-             - cat script.in > output2.txt
-             - mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt
-             - mkdir deletefolder; echo c > deletefolder/some.text
-       
-       id: 1
-       name: run_test_name
-      File("frag.in") Contents:
-       replace frag
-      File("other.in") Contents:
-       another file
-      File("output.txt") Contents:
-       test_echo
-      File("output2.other") Contents:
-       test value replace frag
-      File("script.in") Contents:
-       test value replace frag
+      File("config_1.yaml")
+      File("frag.in")
+      File("other.in")
+      File("output.txt")
+      File("output2.other")
+      File("script.in")
       Folder("subfolder")
-        File("dont_delete.txt") Contents:
-         b"""
-        print(path.to_string(file_content=True))
-        assert path.to_string(file_content=True) == expected
+        File("dont_delete.txt")"""
+        assert path.to_string(file_content=False) == expected
+
+        assert path["output/1_run_test_name/script.in"]._content == ["test value replace frag"]
 
 
 def test_create_qsub(context):
