@@ -16,7 +16,8 @@ except ImportError:
 from jsonextended.utils import MockPath
 from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.mockssh import mockserver
-from atomic_hpc.deploy_runs import get_inputs, _replace_in_cmnd, _create_qsub, _deploy_run_normal, _deploy_run_qsub
+from atomic_hpc.deploy_runs import (get_inputs, deploy_runs, _replace_in_cmnd, _create_qsub,
+                                    _deploy_run_normal, _deploy_run_qsub)
 
 logging.basicConfig(level="INFO")
 
@@ -72,6 +73,7 @@ example_run = """runs:
         2.txt: 2.other
 
 """
+
 
 @pytest.fixture("function")
 def local_pathlib():
@@ -210,6 +212,11 @@ def test_run_deploy_normal(context):
         assert path.to_string(file_content=False) == expected
 
         assert path["output/1_run_test_name/script.in"]._content == ["test value replace frag"]
+
+
+def test_full_normal(context):
+    runs, path = context
+    deploy_runs(runs, path, exists_error=True, exec_errors=True)
 
 
 def test_create_qsub(context):
@@ -376,3 +383,4 @@ def test_run_deploy_qsub_pass_remote(remote):
     outfile = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name/output2.other'))
     with outfile.open() as f:
         assert "test value replace frag" == f.read()
+

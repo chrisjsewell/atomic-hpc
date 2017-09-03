@@ -155,7 +155,6 @@ def get_inputs(run, config_path):
     return {"files": dict(files.values()), "scripts": scripts, "cmnds": cmnds}
 
 
-# TODO tests for deploy_runs (top-level)
 def deploy_runs(runs, root_path, exists_error=False, exec_errors=False):
     """
 
