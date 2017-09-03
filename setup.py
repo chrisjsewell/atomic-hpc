@@ -45,7 +45,7 @@ with io.open('README.rst') as readme:
             'Topic :: Software Development :: Libraries :: Python Modules',
             'Topic :: Utilities',
         ],
-        keywords='json, units, parser, python',
+        keywords='yaml, hpc, configuration, ssh, sftp',
         zip_safe=True,
         package_data={
             "mockssh": [
