@@ -326,7 +326,15 @@ echo Running: {run_name}
 # load required modules
 {load_modules}
 
-echo "running in $TMPDIR"
+if [ -z ${{TMPDIR+x}} ]; then 
+    echo "the TEMPDIR variable does not exist"  1>&2
+    exit 1
+fi
+if [ -z "TMPDIR" ]; then
+    echo "the TEMPDIR variable is empty"  1>&2
+    exit 1
+fi
+echo "running in: $TMPDIR"
 cd $TMPDIR
 
 # copy required input files from $WORKDIR to $TMPDIR
