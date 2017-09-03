@@ -259,7 +259,7 @@ def test_run_deploy_normal(context):
        input:
          path:
          scripts:
-         - input/script.in
+           - input/script.in
          files:
            frag1: input/frag.in
            other: input/other.in
@@ -270,18 +270,18 @@ def test_run_deploy_normal(context):
          remote:
          path: output
          remove:
-         - '*/to_delete.txt'
-         - deletefolder
-         - tmp.*
+           - '*/to_delete.txt'
+           - deletefolder
+           - tmp.*
          rename:
            2.txt: 2.other
        process:
          unix:
            run:
-           - echo test_echo > output.txt
-           - cat script.in > output2.txt
-           - mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt
-           - mkdir deletefolder; echo c > deletefolder/some.text
+             - echo test_echo > output.txt
+             - cat script.in > output2.txt
+             - mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt
+             - mkdir deletefolder; echo c > deletefolder/some.text
          windows:
            run:
          qsub:
@@ -292,14 +292,14 @@ def test_run_deploy_normal(context):
            queue:
            email:
            modules:
-           - quantum-espresso
-           - intel-suite
-           - mpi
+             - quantum-espresso
+             - intel-suite
+             - mpi
            run:
-           - echo test_echo > output.txt
-           - cat script.in > output2.txt
-           - mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt
-           - mkdir deletefolder; echo c > deletefolder/some.text
+             - echo test_echo > output.txt
+             - cat script.in > output2.txt
+             - mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt
+             - mkdir deletefolder; echo c > deletefolder/some.text
        
        id: 1
        name: run_test_name
@@ -316,7 +316,7 @@ def test_run_deploy_normal(context):
       Folder("subfolder")
         File("dont_delete.txt") Contents:
          b"""
-        #print(path.to_string(file_content=True))
+        print(path.to_string(file_content=True))
         assert path.to_string(file_content=True) == expected
 
 

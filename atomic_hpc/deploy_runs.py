@@ -245,6 +245,7 @@ def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=F
         # dump a record of the run configuration to output
         with folder.open(os.path.join(outdir, "config_{}.yaml".format(run["id"])), "w") as f:
             yaml = YAML()
+            yaml.indent(mapping=2, sequence=4, offset=2)
             yaml.dump(run, f)
 
         for fname, fcontent in files.items():
