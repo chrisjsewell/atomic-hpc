@@ -301,6 +301,13 @@ You will be asked for the passphrase for your keyfile. Enter it.
 You should now be logged in to the HPC. If you are not asked for the passphrase but for the password of your account, 
 the Server does not accept your key pair. 
 
+So far, we have replaced entering the password for your account with entering the passphrase for your keypair. 
+This is where a so called SSH-agent comes handy. The agent will store your passphrases for you so you do not have 
+to enter them anymore. Luckily MacOS has one build in, that should have popped up and asked you, whether you want the 
+agent to take care of your passphrases. If you said 'YES', that was the very last time you ever heard or saw anything of 
+it or your passphrase. Similar agents exist for more or less every OS. From now on you just have to 
+enter hostname and username and you are logged in.
+
 Notes
 -----
 
