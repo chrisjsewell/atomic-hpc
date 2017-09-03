@@ -72,7 +72,7 @@ class change_dir(object):
             # try connecting
             try:
                 self._ssh.connect(self._hostname, **self._kwargs)
-                sftp = self._ssh.open_sftp()
+                _ = self._ssh.open_sftp()
                 #sftp.chdir(self._path)
                 self._ssh.close()
             except Exception as err:

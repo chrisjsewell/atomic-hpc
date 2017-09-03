@@ -1,6 +1,6 @@
-import pytest
+
 from jsonextended import edict, utils
-from jsonschema import ValidationError
+# from jsonschema import ValidationError
 
 from atomic_hpc.config_yaml import format_config_yaml
 

@@ -5,7 +5,7 @@
 
 import io
 from importlib import import_module
-from setuptools import setup, find_packages
+from setuptools import setup  # , find_packages
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()

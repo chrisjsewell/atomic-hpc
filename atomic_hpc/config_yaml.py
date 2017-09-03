@@ -1,5 +1,4 @@
 import logging
-import os
 from ruamel.yaml import YAML
 from jsonschema import validate, ValidationError
 from jsonextended import edict
@@ -137,7 +136,6 @@ _global_defaults = {
     },
 
     "output": {
-        "remote": None,
         "path": "output",
         "remove": None,
         "rename": None,

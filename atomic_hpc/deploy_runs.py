@@ -5,7 +5,7 @@ import copy
 import os
 import logging
 import re
-from collections import OrderedDict
+
 # python 2/3 compatibility
 import time
 from ruamel.yaml import YAML

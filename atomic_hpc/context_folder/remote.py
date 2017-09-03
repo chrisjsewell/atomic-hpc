@@ -305,13 +305,14 @@ class RemotePath(VirtualDir):
 
     @renew_connection
     @contextmanager
-    def open(self, path, mode='r', **kwargs):
+    def open(self, path, mode='r', encoding=None):
         """
 
         Parameters
         ----------
         path: str
         mode: str
+        encoding: None or str
 
         Returns
         -------

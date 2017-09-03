@@ -1,6 +1,6 @@
 import os
 import shutil
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, PIPE  # , STDOUT
 from contextlib import contextmanager
 import logging
 from threading import Thread

@@ -102,7 +102,7 @@ class VirtualDir(object):
         -------
 
         """
-        raise NotImplemented
+        raise NotImplementedError
 
     def rmtree(self, path):
         """
@@ -185,7 +185,7 @@ class VirtualDir(object):
         """
         raise NotImplementedError
 
-    def copy_from(self, path, source):
+    def copy_from(self, source, path):
         """
 
         Parameters
@@ -261,7 +261,7 @@ class VirtualDir(object):
 
         return None
 
-    def exec_cmnd(self, path, cmnd, raise_error=False, timeout=None):
+    def exec_cmnd(self, cmnd, path, raise_error=False, timeout=None):
         """
 
         Parameters
