@@ -7,6 +7,7 @@ import logging
 import re
 from collections import OrderedDict
 # python 2/3 compatibility
+import time
 from ruamel.yaml import YAML
 
 try:
@@ -257,6 +258,7 @@ def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=F
             yaml = YAML()
             yaml.indent(mapping=2, sequence=4, offset=2)
             run["config_version"] = atomic_hpc.__version__
+            run["created"] = time.strftime("%c")
             yaml.dump(run, f)
 
         for fname, fcontent in files.items():
@@ -303,6 +305,7 @@ def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=F
                         newname = os.path.basename(path).replace(old, new)
                         logger.debug("renaming {0} to {1}".format(path, newname))
                         folder.rename(path, newname)
+    return True
 
 _qsub_top_template = """#!/bin/bash --login
 #PBS -N {jobname:.14}
@@ -522,6 +525,7 @@ def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=Fal
             yaml = YAML()
             yaml.indent(mapping=2, sequence=4, offset=2)
             run["config_version"] = atomic_hpc.__version__
+            run["created"] = time.strftime("%c")
             yaml.dump(run, f)
 
         for fname, fcontent in files.items():
