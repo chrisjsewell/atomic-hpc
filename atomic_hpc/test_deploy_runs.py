@@ -67,6 +67,7 @@ example_run = """runs:
       remove:
         - "*/to_delete.txt"
         - deletefolder
+        - tmp.*
       rename:
         2.txt: 2.other
 
@@ -239,6 +240,7 @@ def test_run_deploy_normal(context):
          remove:
            - "*/to_delete.txt"
            - deletefolder
+           - tmp.*
          rename:
            2.txt: 2.other
    
@@ -270,6 +272,7 @@ def test_run_deploy_normal(context):
          remove:
          - '*/to_delete.txt'
          - deletefolder
+         - tmp.*
          rename:
            2.txt: 2.other
        process:
@@ -381,6 +384,7 @@ mkdir deletefolder; echo c > deletefolder/some.text
 # remove output files
 for path in $(find */to_delete.txt); do if [ -e $path ]; then rm -Rf $path; fi; done
 for path in $(find deletefolder); do if [ -e $path ]; then rm -Rf $path; fi; done
+for path in $(find tmp.*); do if [ -e $path ]; then rm -Rf $path; fi; done
 
 # rename output files
 find . -depth -name '*2.txt*' -execdir bash -c 'mv -i "$1" "${1//2.txt/2.other}"' bash {} \;
