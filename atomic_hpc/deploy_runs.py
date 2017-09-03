@@ -23,6 +23,7 @@ except NameError:
     unicode=str
 
 from atomic_hpc import context_folder
+from atomic_hpc import __version__ as _VERSION
 
 _REGEX_VAR = r"(?:\@v\{[^}]+\})"
 _REGEX_FILE = r"(?:\@f\{[^}]+\})"
@@ -254,6 +255,7 @@ def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=F
         with folder.open(os.path.join(outdir, "config_{}.yaml".format(run["id"])), "w") as f:
             yaml = YAML()
             yaml.indent(mapping=2, sequence=4, offset=2)
+            run["config_version"] = _VERSION
             yaml.dump(run, f)
 
         for fname, fcontent in files.items():
@@ -518,6 +520,7 @@ def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=Fal
         with folder.open(os.path.join(outdir, "config_{}.yaml".format(run["id"])), "w") as f:
             yaml = YAML()
             yaml.indent(mapping=2, sequence=4, offset=2)
+            run["config_version"] = _VERSION
             yaml.dump(run, f)
 
         for fname, fcontent in files.items():
