@@ -410,6 +410,10 @@ def test_run_deploy_qsub_pass_local(local_pathlib):
     finally:
         shutil.rmtree(temppath)
 
+    outfile = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name/run.qsub'))
+    with outfile.open() as f:
+        assert "test value replace frag" == f.read()
+
     outpath = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name'))
     assert outpath.exists()
     expected = ['output/1_run_test_name/config_1.yaml', 'output/1_run_test_name/frag.in',
