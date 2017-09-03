@@ -170,7 +170,7 @@ def test_exec_cmnd_with_stderr(context):
 def test_exec_cmnd_multiline_output(context):
     testdir, _ = context
     logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO, stream=sys.stdout)
-    testdir.exec_cmnd('for ((i = 0 ; i < 4 ; i++ )); do echo "abc" >&1; echo "efg" >&2; sleep 1; done')
+    testdir.exec_cmnd('bash -c \'for ((i = 0 ; i < 4 ; i++ )); do echo "abc" >&1; echo "efg" >&2; sleep 1; done\'')
 
 
 
