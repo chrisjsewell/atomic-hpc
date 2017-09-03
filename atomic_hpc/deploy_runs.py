@@ -327,11 +327,11 @@ echo Running: {run_name}
 {load_modules}
 
 if [ -z ${{TMPDIR+x}} ]; then 
-    echo "the TEMPDIR variable does not exist"  1>&2
+    echo "the TMPDIR variable does not exist"  1>&2
     exit 1
 fi
 if [ -z "TMPDIR" ]; then
-    echo "the TEMPDIR variable is empty"  1>&2
+    echo "the TMPDIR variable is empty"  1>&2
     exit 1
 fi
 echo "running in: $TMPDIR"

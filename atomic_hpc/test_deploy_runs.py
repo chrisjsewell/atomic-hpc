@@ -359,11 +359,11 @@ echo Running: 1_run_test_name
 module load quantum-espresso intel-suite mpi
 
 if [ -z ${TMPDIR+x} ]; then 
-    echo "the TEMPDIR variable does not exist"  1>&2
+    echo "the TMPDIR variable does not exist"  1>&2
     exit 1
 fi
 if [ -z "TMPDIR" ]; then
-    echo "the TEMPDIR variable is empty"  1>&2
+    echo "the TMPDIR variable is empty"  1>&2
     exit 1
 fi
 echo "running in: $TMPDIR"
@@ -411,7 +411,12 @@ def test_run_deploy_qsub_pass_local(local_pathlib):
     run["environment"] = "qsub"
     inputs = get_inputs(run, path)
 
-    temppath = mkdtemp()
+    # Travis doesn't allow setting global variable in command line
+    if os.getenv('CI', False) and os.getenv('TMPDIR', False):
+        os.makedirs(os.environ['TMPDIR'])
+        temppath = mkdtemp(dir=os.environ['TMPDIR'])
+    else:
+        temppath = mkdtemp()
     try:
         with mock.patch("atomic_hpc.deploy_runs._QSUB_CMNDLINE",
                         "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath))):
@@ -444,7 +449,12 @@ def test_run_deploy_qsub_pass_remote(remote):
     run["environment"] = "qsub"
     inputs = get_inputs(run, path)
 
-    temppath = mkdtemp()
+    # Travis doesn't allow setting global variable in command line
+    if os.getenv('CI', False) and os.getenv('TMPDIR', False):
+        os.makedirs(os.environ['TMPDIR'])
+        temppath = mkdtemp(dir=os.environ['TMPDIR'])
+    else:
+        temppath = mkdtemp()
     try:
         with mock.patch("atomic_hpc.deploy_runs._QSUB_CMNDLINE",
                         "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath))):
