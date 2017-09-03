@@ -1,7 +1,7 @@
 atomic-hpc
 ==========
 
-|travis| |coverall| |codacy|
+|image1| |image2| |image3|
 
 **Project**: https://github.com/chrisjsewell/atomic-hpc
 
@@ -38,25 +38,25 @@ Minimal Example
    unique id, then attributes can be set in the (global) ``defaults``
    section or per run (run attributes will overwrite defaults):
 
-config.yaml:
+   **config.yaml**:
 
-.. code:: yaml
+   .. code:: yaml
 
-    defaults:
-        environment: unix
+       defaults:
+           environment: unix
 
-        process:
-          unix:
-            run:
-              - echo "hallo world" > hallo.txt
-        
-        output:
-          path: output
-    runs:
-      - id: 1
-        name: test_local
-      - id: 2
-        name: test_other
+           process:
+             unix:
+               run:
+                 - echo "hallo world" > hallo.txt
+
+           output:
+             path: output
+       runs:
+         - id: 1
+           name: test_local
+         - id: 2
+           name: test_other
 
 2. Submit it with the command line app (use -h to see all options):
 
@@ -116,13 +116,15 @@ replaced in the cmnd lines and script files if a corresponding
 ``@v{var_id}`` regex is found. Similarly entire file contents can be
 parsed to the script with the ``@f{file_id}`` regex:
 
-::
+.. code:: sh
 
     >> cat path/to/script1.in
     @v{var1}
     @f{file1}
     >> cat path/to/file1
     This is file 1
+
+**config.yaml**:
 
 .. code:: yaml
 
@@ -159,7 +161,9 @@ parsed to the script with the ``@f{file_id}`` regex:
             variables:
                 var1: value2
 
-::
+**Run**:
+
+.. code:: sh
 
     >> run_config config.yaml
     >> ls -R output
@@ -262,9 +266,9 @@ If using special characters in strings (like \*) be sure to wrap them in
 "" or use the > or \| yaml components (see
 https://en.wikipedia.org/wiki/YAML#Basic\_components)
 
-.. |travis| image:: https://travis-ci.org/chrisjsewell/jsonextended.svg?branch=master
+.. |image1| image:: https://travis-ci.org/chrisjsewell/jsonextended.svg?branch=master
    :target: https://travis-ci.org/chrisjsewell/atomic-hpc
-.. |coverall| image:: https://coveralls.io/repos/github/chrisjsewell/jsonextended/badge.svg?branch=master
+.. |image2| image:: https://coveralls.io/repos/github/chrisjsewell/jsonextended/badge.svg?branch=master
    :target: https://coveralls.io/github/chrisjsewell/atomic-hpc?branch=master
-.. |codacy| image:: https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9
+.. |image3| image:: https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9
    :target: https://www.codacy.com/app/chrisj_sewell/atomic-hpc?utm_source=github.com&utm_medium=referral&utm_content=chrisjsewell/atomic-hpc&utm_campaign=Badge_Grade

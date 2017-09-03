@@ -31,25 +31,25 @@ Minimal Example
 1. Write a yaml configuration file; each run must have a name and a unique id, 
 then attributes can be set in the (global) `defaults` section or per run (run attributes will overwrite defaults):
 
-config.yaml:
-```yaml
-defaults:
-    environment: unix
-
-    process:
-      unix:
-        run:
-          - echo "hallo world" > hallo.txt
+    **config.yaml**:
+    ```yaml
+    defaults:
+        environment: unix
     
-    output:
-      path: output
-runs:
-  - id: 1
-    name: test_local
-  - id: 2
-    name: test_other
-
-```
+        process:
+          unix:
+            run:
+              - echo "hallo world" > hallo.txt
+        
+        output:
+          path: output
+    runs:
+      - id: 1
+        name: test_local
+      - id: 2
+        name: test_other
+    
+    ```
 
 2. Submit it with the command line app (use -h to see all options):
 
@@ -110,6 +110,7 @@ regex is found. Similarly entire file contents can be parsed to the script with 
 This is file 1
 ```
 
+ **config.yaml**:
 ```yaml
 defaults:
     description: quantum-espresso run
@@ -146,6 +147,7 @@ runs:
 
 ```
 
+**Run**:
 ```sh
 >> run_config config.yaml
 >> ls -R output

@@ -16,7 +16,8 @@ with io.open('README.rst') as readme:
     setup(
         name='atomic-hpc',
         version=import_module('atomic_hpc').__version__,
-        description='A package to ease running some MD and DFT codes, particularly on the Imperial HPC.',
+        description='A package for running multiple executable scripts on both local and remote hosts, '
+                    'configured using a modern standard YAML',
         long_description=readme.read(),
         install_requires=requirements,
         tests_require=test_requirements,
