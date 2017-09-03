@@ -406,7 +406,7 @@ def test_run_deploy_qsub_pass_local(local_pathlib):
     temppath = mkdtemp()
     try:
         with mock.patch("atomic_hpc.deploy_runs._QSUB_CMNDLINE",
-                        "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(temppath)):
+                        "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath))):
             assert _deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == True
     finally:
         shutil.rmtree(temppath)
@@ -426,7 +426,7 @@ def test_run_deploy_qsub_pass_local(local_pathlib):
 
     outfile = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name/output2.other'))
     with outfile.open() as f:
-        assert "test value replace frag" == f.read()
+        assert "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath)) == f.read()
 
 
 def test_run_deploy_qsub_pass_remote(remote):
