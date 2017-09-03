@@ -29,7 +29,7 @@ def splitall(path):
     return allparts
 
 
-def fnmatch_path(path, pattern, isafile):
+def fnmatch_path(path, pattern, isafile=False):
     """ match a path, with a pattern which can contain wildcards and ** recursion
 
     Parameters
@@ -59,34 +59,37 @@ def fnmatch_path(path, pattern, isafile):
     if not patternlist:
         raise ValueError("Unacceptable pattern: {}".format(pattern))
 
-    i = 0
-    for pathcomp in pathlist:
+    # count **
+    dblstars = 0
+    dblstars_index = None
+    for i, patt in enumerate(patternlist):
+        if "**" in patt:
+            if len(patt) > 2:
+                raise ValueError("** must be a separate component: {}".format(pattern))
+            else:
+                dblstars += 1
+                dblstars_index = i
 
-        # if the path is longer than the pattern
-        if i > len(patternlist)-1:
+    if not dblstars:
+        if len(pathlist) != len(patternlist):
             return False
-
-        if not fnmatch(pathcomp, patternlist[i]):
+        for comp, patt in zip(pathlist, patternlist):
+            if not fnmatch(comp, patt):
+                return False
+    elif dblstars > 1:
+        raise NotImplementedError("only allowed one ** per regex: {}".format(pattern))
+    else:
+        if len(pathlist) < len(patternlist)-1:
             return False
-
-        # pause moving to next part of the pattern while **
-        if not patternlist[i] == "**":
-            i += 1
-        # but go again if the next part of the pattern matches
-        elif not i+1 > len(patternlist) - 1:
-            if fnmatch(pathcomp, patternlist[i+1]):
-                if not (i+2==len(patternlist) and patternlist[i+1]=="*"):
-                    i += 1
-
-    # fail if still part of the pattern left
-    if not i > len(patternlist) - 1:
-        # but not if the final part is ** or **/[match]
-        if patternlist[-1] == "**":
-            return True
-        if len(patternlist) > 1:
-            if patternlist[-2] == "**" and fnmatch(pathcomp, patternlist[-1]):
-                return True
-        return False
+        # match from front upto **
+        for comp, patt in zip(pathlist[:dblstars_index], patternlist[:dblstars_index]):
+            if not fnmatch(comp, patt):
+                return False
+        # match from back (in reverse) to **
+        dblstars_rev = len(patternlist) - dblstars_index - 1
+        for comp, patt in zip(pathlist[-dblstars_rev:], patternlist[-dblstars_rev:]):
+            if not fnmatch(comp, patt):
+                return False
 
     return True
 

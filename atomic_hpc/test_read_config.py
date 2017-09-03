@@ -2,7 +2,7 @@ import pytest
 from jsonextended import edict, utils
 from jsonschema import ValidationError
 
-from atomic_hpc.config_yaml import _format_config_yaml, _find_run_dependancies, runs_from_config
+from atomic_hpc.config_yaml import format_config_yaml
 
 example_file_minimal = """
 runs:
@@ -13,7 +13,6 @@ runs:
 expected_output_minimal = [
     {
         "description": "",
-        "requires": None,
         "environment": "unix",
         "input": None,
         "output": {
@@ -37,10 +36,7 @@ expected_output_minimal = [
                 "queue": None,
                 "email": None,
                 "modules": None,
-                "before_run": None,
                 "run": None,
-                "from_temp": None,
-                "after_run": None
             }
         },
         "id": 1,
@@ -91,13 +87,8 @@ defaults:
                 - quantum-espresso
                 - intel-suite
                 - mpi
-            before_run:
-                - ./script1.in
             run: 
                 - mpiexec pw.x -i script2.in > main.qe.scf.out  
-            from_temp:
-                - .other.out
-            after_run:
 
 runs:
   - id: 1
@@ -113,14 +104,12 @@ runs:
             - path/to/script2.in
         variables:
             var2: overridevalue
-    requires: 1
 
 """
 
 expected_output_maximal = [
     {
         "description": "quantum-espresso run",
-        "requires": None,
         "environment": "qsub",
         "input": {
             "path": None,
@@ -185,16 +174,9 @@ expected_output_maximal = [
                     "intel-suite",
                     "mpi"
                 ],
-                "before_run": [
-                    "./script1.in"
-                ],
                 "run": [
                     "mpiexec pw.x -i script2.in > main.qe.scf.out"
                 ],
-                "from_temp": [
-                    ".other.out"
-                ],
-                "after_run": None
             }
         },
         "id": 1,
@@ -202,7 +184,6 @@ expected_output_maximal = [
     },
     {
         "description": "quantum-espresso run",
-        "requires": 1,
         "environment": "qsub",
         "input": {
             "path": None,
@@ -267,16 +248,9 @@ expected_output_maximal = [
                     "intel-suite",
                     "mpi"
                 ],
-                "before_run": [
-                    "./script1.in"
-                ],
                 "run": [
                     "mpiexec pw.x -i script2.in > main.qe.scf.out"
                 ],
-                "from_temp": [
-                    ".other.out"
-                ],
-                "after_run": None
             }
         },
         "id": 2,
@@ -288,7 +262,7 @@ expected_output_maximal = [
 def test_format_minimal():
     file_obj = utils.MockPath('config.yml', is_file=True,
                               content=example_file_minimal)
-    output = _format_config_yaml(file_obj)
+    output = format_config_yaml(file_obj)
     # handy for updating
     # import json
     # print(json.dumps(output, indent=4))
@@ -298,56 +272,9 @@ def test_format_minimal():
 def test_format_maximal():
     file_obj = utils.MockPath('config.yml', is_file=True,
                               content=example_file_maximal)
-    output = _format_config_yaml(file_obj)
+    output = format_config_yaml(file_obj)
     # handy for updating
     # import json
     # print(json.dumps(output, indent=4))
     assert edict.diff(output, expected_output_maximal) == {}
 
-
-def test_find_dependencies():
-    runs1 = [{'id': 1, 'requires': None}]
-    assert _find_run_dependancies(runs1) == [{'id': 1, 'requires': None, "children": []}]
-
-    runs2 = [{'id': 1, 'requires': 1}]
-    with pytest.raises(ValidationError, message="Expecting ValidationError"):
-        _find_run_dependancies(runs2)
-
-    runs3 = [{'id': 1, 'requires': None}, {'id': 2, 'requires': 1}]
-    assert _find_run_dependancies(runs3) == [{'id': 1, 'requires': None,
-                                              "children": [{'id': 2, 'requires': 1, "children": []}]}]
-
-    runs4 = [{'id': 1, 'requires': None}, {'id': 2, 'requires': 1}, {'id': 3, 'requires': 1}]
-    assert _find_run_dependancies(runs4) == [{'id': 1, 'requires': None,
-                                              "children": [{'id': 2, 'requires': 1, "children": []},
-                                                           {'id': 3, 'requires': 1, "children": []}]}]
-
-    child1 = {'id': 2, 'requires': 1}
-    child2 = {'id': 3, 'requires': 2}
-    runs5 = [{'id': 1, 'requires': None}, child1, child2]
-    assert _find_run_dependancies(runs5) == [{'id': 1, 'requires': None, "children": [child1]}]
-    assert child1 == {'id': 2, 'requires': 1, "children": [child2]}
-
-    runs6 = [{'id': 1, 'requires': None}, {'id': 2, 'requires': 3}]
-    with pytest.raises(ValidationError, message="Expecting ValidationError"):
-        _find_run_dependancies(runs6)
-
-    file_obj = utils.MockPath('config.yml', is_file=True,
-                              content=example_file_minimal)
-    real_runs = _format_config_yaml(file_obj)
-    real_out1 = _find_run_dependancies(real_runs)
-    assert len(real_out1) == 1
-
-    file_obj2 = utils.MockPath('config.yml', is_file=True,
-                              content=example_file_maximal)
-    real_runs2 = _format_config_yaml(file_obj2)
-    real_out2 = _find_run_dependancies(real_runs2)
-    assert len(real_out2) == 1
-
-
-def test_runs_from_config():
-    file_obj = utils.MockPath('config.yml', is_file=True,
-                              content=example_file_minimal)
-    assert len(runs_from_config(file_obj)) == 1
-    assert hasattr(runs_from_config(file_obj)[0], 'keys')
-    assert runs_from_config(file_obj)[0]["name"] == "run1"

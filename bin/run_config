@@ -4,18 +4,11 @@ import sys
 import argparse
 import logging
 import logging.handlers
-from atomic_hpc.config_yaml import runs_from_config
+from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.deploy_runs import deploy_runs
 
-# class MyParser(argparse.ArgumentParser):
-#     def error(self, message):
-#         sys.stderr.write('error: %s\n' % message)
-#         self.print_help()
-#         sys.exit(2)
 
-
-def run(fpath, basepath="", log_level='INFO', out_abort=False,
-        exec_abort=False, sep_dir=False):
+def run(fpath, basepath="", log_level='INFO', ignore_fail=False, overwrite=False):
     """
 
     Parameters
@@ -23,14 +16,10 @@ def run(fpath, basepath="", log_level='INFO', out_abort=False,
     fpath: str
     basepath: str
     log_level: str
-    out_abort: bool
-        if True, raise an IOError if the output path already exists
-    exec_abort: bool
-        if True, raise Error if exec commands return with errorcode
-    sep_dir: bool
-        for local:
-        if True and parent_dir is not None, the run will take place in the parent_dir
-        if False and parent_dir is not None, the contents of the parent_dir will be copied to the output folder
+    ignore_fail: bool
+        if True; if a command line execution fails continue the run
+    overwrite: bool
+        if True; if a run's output directory already exists, then remove it
 
     Returns
     -------
@@ -60,8 +49,10 @@ def run(fpath, basepath="", log_level='INFO', out_abort=False,
     fpath = os.path.abspath(fpath)
     basepath = os.path.abspath(basepath)
 
-    toplevel = runs_from_config(fpath)
-    deploy_runs(toplevel, basepath, exists_error=out_abort, exec_errors=exec_abort, separate_dir=sep_dir)
+    runs = format_config_yaml(fpath)
+    exists_error = not overwrite
+    exec_errors = not ignore_fail
+    deploy_runs(runs, basepath, exists_error=exists_error, exec_errors=exec_errors)
 
 
 class ErrorParser(argparse.ArgumentParser):
@@ -80,18 +71,16 @@ if __name__ == "__main__":
     )
     parser.add_argument("configpath", type=str,
                         help='yaml config file path', metavar='filepath')
-    parser.add_argument("-log", "--log-level", type=str, default='info',
-                        choices=['debug', 'info', 'warning', 'error'],
-                        help='the logging level to output to screen/file')
     parser.add_argument("-b", "--basepath", type=str, metavar='str',
                         help='path to use when resolving relative paths in the config file',
                         default=os.getcwd())
-    parser.add_argument("-oa", "--out-abort", action="store_true",
-                        help='abort the run if its output path already exists')
-    parser.add_argument("-ea", "--exec-abort", action="store_true",
-                        help='abort the run if a command line execution fails')
-    parser.add_argument("-sd", "--sep-dir", action="store_true",
-                        help='create a separate output directory for child runs (not available for qsub)')
+    parser.add_argument("-ow", "--overwrite", action="store_true",
+                        help="if a run's output directory already exists, then remove it (default is to abort the run)")
+    parser.add_argument("-if", "--ignore-fail", action="store_true",
+                        help='if a command line execution fails continue the run (default is to abort the run)')
+    parser.add_argument("-log", "--log-level", type=str, default='info',
+                        choices=['debug', 'info', 'warning', 'error'],
+                        help='the logging level to output to screen/file')
 
     args = parser.parse_args()
     options = vars(args)

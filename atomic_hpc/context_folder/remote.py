@@ -21,6 +21,16 @@ from atomic_hpc.context_folder.abstract import VirtualDir
 from atomic_hpc.utils import walk_path, glob_path, splitall
 
 
+# for writing binary output to stdout
+if sys.platform == "win32":
+    import os, msvcrt
+    msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+
+if sys.platform == "win64":
+    import os, msvcrt
+    msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+
+
 def renew_connection(func):
     def wrapper(*args, **kwargs):
         self = args[0]
@@ -181,9 +191,12 @@ class RemotePath(VirtualDir):
             raise IOError("root doesn't exist: {}".format(path))
         if not self.isdir(path):
             raise IOError("root is not a directory: {}".format(path))
+        print(os.path.join(path, "**", "*"))
         logger.info("removing: {0}".format(list(self.glob(os.path.join(path, "**", "*")))))
         for subpath in reversed(sorted(self.glob(os.path.join(path, "**", "*")))):
             self.remove(subpath)
+        if self.exists(path):
+            self.remove(path)
 
     @renew_connection
     def rename(self, path, newname):

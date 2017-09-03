@@ -24,5 +24,3 @@ runs:
           - echo test > test.txt
           - echo other >> test_input.txt
           - echo other2 >> test_input.txt
-        from_temp:
-          - .txt
