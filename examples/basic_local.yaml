@@ -6,4 +6,4 @@ runs:
     process:
       unix:
         run:
-          - for ((i = 0 ; i < 4 ; i++ )); do echo "abc" >&1; echo "efg" >&2; sleep 1; done
+          - bash -c 'for ((i = 0 ; i < 4 ; i++ )); do echo "abc" >&1; echo "efg" >&2; sleep 1; done'
