@@ -326,7 +326,7 @@ echo Running: {run_name}
 # load required modules
 {load_modules}
 
-echo "running in ${TMPDIR}"
+echo "running in $TMPDIR"
 cd $TMPDIR
 
 # copy required input files from $WORKDIR to $TMPDIR

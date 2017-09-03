@@ -358,7 +358,7 @@ echo Running: 1_run_test_name
 # load required modules
 module load quantum-espresso intel-suite mpi
 
-echo "running in ${TMPDIR}"
+echo "running in $TMPDIR"
 cd $TMPDIR
 
 # copy required input files from $WORKDIR to $TMPDIR
