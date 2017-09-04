@@ -1,0 +1,10 @@
+# compute Hartree-Fock/KS eigenvectors and eigenvalues
+NEWK
+18 36
+1 0
+ECH3
+# number of points along the first direction
+@v{density_grid_size}
+# Scales/Ranges for non-periodic directions
+END
+

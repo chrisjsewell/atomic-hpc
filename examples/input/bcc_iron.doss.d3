@@ -1,0 +1,21 @@
+# compute Hartree-Fock/KS eigenvectors and eigenvalues
+NEWK
+18 36
+1 0
+DOSS # units: state/hartree/cell
+# NPRO NPT INZB IFNB IPLO NPOL NPR
+# NPRO; number of additional (to total) projected densities to calculate (<= 15)
+# NPT; number of uniformly spaced energy values (from bottom of band INZB to top of band IFNB)
+# INZB; band considered in DOS calculation
+# IFNB;  last band considered in DOS calculation
+# IPLO; output type (1 = to .d25 file) 
+# NPOL; number of Legendre polynomials used to expand DOSS (<= 25)
+# NPR; number of printing options to switch on
+0 100 1 18 1 14 0
+# each following line; 
+#     N>0;  DOS projected onto a set of N AOs 
+#     NDM; AO number 
+#   OR
+#     N<0: projected onto all AOs of atoms in NDM
+#     NDM: atoms by their sequence number (basis set order)
+END

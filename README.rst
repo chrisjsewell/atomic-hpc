@@ -11,6 +11,8 @@ remote hosts, configured using a modern standard
 designed, in particular, for job submission to High Performance
 Computing (HPC) clusters, such as the `Imperial HPC
 facility <https://www.imperial.ac.uk/admin-services/ict/self-service/research-support/hpc/>`__.
+Working examples can be found
+`here <https://github.com/chrisjsewell/atomic-hpc/tree/master/examples>`__.
 
 Installation
 ------------

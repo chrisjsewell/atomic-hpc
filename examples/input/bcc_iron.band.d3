@@ -1,0 +1,12 @@
+BAND
+Fe BCC
+# numlines, divider (if coord given), numKpts, 1st Band, Last Band, formatted output for plotting 
+7 0 210 1 18 1 0
+G H
+H N
+N G
+G P
+P N
+N P
+P H
+END

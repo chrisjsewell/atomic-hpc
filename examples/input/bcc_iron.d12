@@ -1,0 +1,31 @@
+Bulk BCC Fe from exp O. Crisan and A. D. Crisan, Journal of Alloys and Compounds 509, 6522 (2011).
+CRYSTAL
+0 0 0
+229
+2.869
+1
+26  0.0  0.0  0.0
+END
+@f{fe_basis_set}
+99 0
+END
+DFT
+@v{hamiltonian}
+SPIN
+END
+TOLINTEG
+7 7 7 7 14
+SHRINK
+@v{shrink_is} @v{shrink_isp}
+FMIXING
+80
+ANDERSON
+SPINLOCK
+@v{init_spin} 5
+ATOMSPIN
+1
+1 1
+PPAN
+MAXCYCLE
+200
+END

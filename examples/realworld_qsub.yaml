@@ -1,0 +1,89 @@
+defaults:
+  environment: qsub
+  description: runs for bulk bcc iron
+
+  input:
+    variables:
+        script_name: bcc_iron
+        shrink_is: 8
+        shrink_isp: 16
+        init_spin: 2
+        density_grid_size: 65
+    scripts:
+      - input/remove_comments.sh
+      - input/bcc_iron.d12
+      - input/bcc_iron.doss.d3
+      - input/bcc_iron.ech3.d3
+      - input/bcc_iron.band.d3
+
+  output:
+    remote:
+      hostname: login.cx1.hpc.imperial.ac.uk
+      username: cjs14
+    path: /work/cjs14/bulk_iron/crystal
+    rename:
+      .out: .crystal.out
+
+  process:
+    qsub:
+      cores_per_node: 16
+      nnodes: 1
+      walltime: 00:14:59
+      modules:
+        - intel-suite/2016.3
+        - mpi/intel-5.1
+      start_in_temp: false
+      run:
+        - ./remove_comments.sh @v{script_name}.d12
+        - ./remove_comments.sh @v{script_name}.doss.d3
+        - ./remove_comments.sh @v{script_name}.band.d3
+        - ./remove_comments.sh @v{script_name}.ech3.d3
+        - /home/CRYSTAL14_cx1/runcry14P.v4 @v{script_name}.d12
+        - /home/CRYSTAL14_cx1/runprop14P.v4 @v{script_name}.doss.d3 @v{script_name}
+        - /home/CRYSTAL14_cx1/runprop14P.v4 @v{script_name}.band.d3 @v{script_name}
+        - /home/CRYSTAL14_cx1/runprop14P.v4 @v{script_name}.ech3.d3 @v{script_name}
+
+runs:
+  - id: 1
+    name: ehsan_pbe
+    input:
+      files:
+        fe_basis_set: basis_sets/Fe_Ehsan.txt
+      variables:
+        hamiltonian: |
+          EXCHANGE
+          PBE
+          CORRELAT
+          PBE
+  - id: 2
+    name: ehsan_hse
+    input:
+      files:
+        fe_basis_set: basis_sets/Fe_Ehsan.txt
+      variables:
+        hamiltonian: HSE06
+  - id: 3
+    name: ruth_pbe
+    input:
+      files:
+        fe_basis_set: basis_sets/Fe_Ruth.txt
+      variables:
+        hamiltonian: |
+          EXCHANGE
+          PBE
+          CORRELAT
+          PBE
+  - id: 4
+    name: ruth_hse
+    input:
+      files:
+        fe_basis_set: basis_sets/Fe_Ruth.txt
+      variables:
+        hamiltonian: HSE06
+
+
+
+
+
+
+

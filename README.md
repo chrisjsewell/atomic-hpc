@@ -11,6 +11,7 @@ A package for running multiple executable scripts on both local and remote hosts
 configured using a modern standard [YAML](https://en.wikipedia.org/wiki/YAML) file. 
 This package was designed, in particular, for job submission to High Performance Computing (HPC) clusters, such as the
 [Imperial HPC facility](https://www.imperial.ac.uk/admin-services/ict/self-service/research-support/hpc/).
+Working examples can be found [here](https://github.com/chrisjsewell/atomic-hpc/tree/master/examples).
 
 Installation
 ------------
