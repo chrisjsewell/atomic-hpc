@@ -111,6 +111,15 @@ class SFTPServerInterface(paramiko.SFTPServerInterface):
         return paramiko.SFTPAttributes.from_stat(st, path)
 
     @returns_sftp_error
+    def chattr(self, path, attr):
+        if hasattr(attr, "st_mode"):
+            os.chmod(path, attr.st_mode)
+        # for param in ["st_size", "st_uid", "st_gid", "st_atime", "st_mtime"]:
+        #     if hasattr(attr, param):
+        #         return paramiko.SFTP_OP_UNSUPPORTED
+        return paramiko.SFTP_OK
+
+    @returns_sftp_error
     def list_folder(self, path):
         """Looks up folder contents of `path.`"""
         folder_contents = []

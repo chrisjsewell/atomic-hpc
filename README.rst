@@ -1,7 +1,7 @@
 atomic-hpc
 ==========
 
-|image1| |image2| |image3|
+|travis| |coveralls| |codacy|
 
 **Project**: https://github.com/chrisjsewell/atomic-hpc
 
@@ -116,7 +116,7 @@ replaced in the cmnd lines and script files if a corresponding
 ``@v{var_id}`` regex is found. Similarly entire file contents can be
 parsed to the script with the ``@f{file_id}`` regex:
 
-.. code:: sh
+::
 
     >> cat path/to/script1.in
     @v{var1}
@@ -163,7 +163,7 @@ parsed to the script with the ``@f{file_id}`` regex:
 
 **Run**:
 
-.. code:: sh
+::
 
     >> run_config config.yaml
     >> ls -R output
@@ -234,9 +234,12 @@ Full Configuration Options
           timeout:
         path: path/to/top/level/output
         remove:
+          # can also use wildcard characters *, ? and []
           - tmp/
-        rename:
-          .other.out: .other.qe.out
+        rename: 
+          # renames any segment of file names, i.e. file.other.out.txt -> file.other.qe.txt
+          # searches for files (recursively) in all folders
+          .other.out: .other.qe
       process:
         unix:
           run:
@@ -250,10 +253,11 @@ Full Configuration Options
           nnodes: 1
           walltime: 1:00:00
           queue: queue_name
-          email: bob@hotmail.com
+          email: bob@hotmail.com # this is not currently working
           modules:
             - module1
             - module2
+          start_in_temp: true # if true cd to $TMPDIR and copy all files before running executables
           run:
             - mpiexec pw.x -i script2.in > main.qe.scf.out
       id: 1
@@ -348,9 +352,9 @@ If using special characters in strings (like \*) be sure to wrap them in
 "" or use the > or \| yaml components (see
 https://en.wikipedia.org/wiki/YAML#Basic\_components)
 
-.. |image1| image:: https://travis-ci.org/chrisjsewell/jsonextended.svg?branch=master
+.. |travis| image:: https://travis-ci.org/chrisjsewell/jsonextended.svg?branch=master
    :target: https://travis-ci.org/chrisjsewell/atomic-hpc
-.. |image2| image:: https://coveralls.io/repos/github/chrisjsewell/jsonextended/badge.svg?branch=master
+.. |coveralls| image:: https://coveralls.io/repos/github/chrisjsewell/jsonextended/badge.svg?branch=master
    :target: https://coveralls.io/github/chrisjsewell/atomic-hpc?branch=master
-.. |image3| image:: https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9
+.. |codacy| image:: https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9
    :target: https://www.codacy.com/app/chrisj_sewell/atomic-hpc?utm_source=github.com&utm_medium=referral&utm_content=chrisjsewell/atomic-hpc&utm_campaign=Badge_Grade

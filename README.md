@@ -1,9 +1,9 @@
 atomic-hpc
 ==========
 
-[![image](https://travis-ci.org/chrisjsewell/jsonextended.svg?branch=master)](https://travis-ci.org/chrisjsewell/atomic-hpc)
-[![image](https://coveralls.io/repos/github/chrisjsewell/jsonextended/badge.svg?branch=master)](https://coveralls.io/github/chrisjsewell/atomic-hpc?branch=master)
-[![image](https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9)](https://www.codacy.com/app/chrisj_sewell/atomic-hpc?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=chrisjsewell/atomic-hpc&amp;utm_campaign=Badge_Grade)
+[![travis](https://travis-ci.org/chrisjsewell/jsonextended.svg?branch=master)](https://travis-ci.org/chrisjsewell/atomic-hpc)
+[![coveralls](https://coveralls.io/repos/github/chrisjsewell/jsonextended/badge.svg?branch=master)](https://coveralls.io/github/chrisjsewell/atomic-hpc?branch=master)
+[![codacy](https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9)](https://www.codacy.com/app/chrisj_sewell/atomic-hpc?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=chrisjsewell/atomic-hpc&amp;utm_campaign=Badge_Grade)
 
 **Project**: <https://github.com/chrisjsewell/atomic-hpc>
 
@@ -102,7 +102,7 @@ Input files and scripts can be local or remote and will be copied to the output 
 Variables can also be set that will be replaced in the cmnd lines and script files if a corresponding `@v{var_id}`
 regex is found. Similarly entire file contents can be parsed to the script with the `@f{file_id}` regex:
 
-```sh
+```
 >> cat path/to/script1.in
 @v{var1}
 @f{file1}
@@ -148,7 +148,7 @@ runs:
 ```
 
 **Run**:
-```sh
+```
 >> run_config config.yaml
 >> ls -R output
 output/1_run1:
@@ -216,9 +216,12 @@ runs:
       timeout:
     path: path/to/top/level/output
     remove:
+      # can also use wildcard characters *, ? and []
       - tmp/
-    rename:
-      .other.out: .other.qe.out
+    rename: 
+      # renames any segment of file names, i.e. file.other.out.txt -> file.other.qe.txt
+      # searches for files (recursively) in all folders
+      .other.out: .other.qe
   process:
     unix:
       run:
@@ -232,10 +235,11 @@ runs:
       nnodes: 1
       walltime: 1:00:00
       queue: queue_name
-      email: bob@hotmail.com
+      email: bob@hotmail.com # this is not currently working
       modules:
         - module1
         - module2
+      start_in_temp: true # if true cd to $TMPDIR and copy all files before running executables
       run:
         - mpiexec pw.x -i script2.in > main.qe.scf.out
   id: 1

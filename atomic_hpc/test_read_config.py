@@ -37,6 +37,7 @@ expected_output_minimal = [
                 "email": None,
                 "modules": None,
                 "run": None,
+                "start_in_temp": True
             }
         },
         "id": 1,
@@ -174,6 +175,7 @@ expected_output_maximal = [
                     "intel-suite",
                     "mpi"
                 ],
+                "start_in_temp": True,
                 "run": [
                     "mpiexec pw.x -i script2.in > main.qe.scf.out"
                 ],
@@ -248,6 +250,7 @@ expected_output_maximal = [
                     "intel-suite",
                     "mpi"
                 ],
+                "start_in_temp": True,
                 "run": [
                     "mpiexec pw.x -i script2.in > main.qe.scf.out"
                 ],

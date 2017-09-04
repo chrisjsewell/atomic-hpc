@@ -13,6 +13,7 @@ try:
 except ImportError:
     import pathlib2 as pathlib
 
+logger = logging.getLogger(__name__)
 
 _config_schema = {
     "description": "config schema",
@@ -28,7 +29,7 @@ _config_schema = {
 _process_qsub_schema = {
     "type": "object",
     "required": ["nnodes", "cores_per_node", "walltime", "queue", "modules",
-                 "run", "jobname"],
+                 "run", "jobname", "start_in_temp"],
     "properties": {
 
         "cores_per_node": {"type": "integer"},
@@ -38,7 +39,7 @@ _process_qsub_schema = {
         "jobname": {"type": ["string", "null"]},
         "email": {"type": ["string", "null"]},
         "modules": {"type": ["array", "null"], "items": {"type": "string"}},
-
+        "start_in_temp": {"type": "boolean"},
         "run": {"type": ["array", "null"], "items": {"type": "string"}},
     },
     "additionalProperties": False,
@@ -162,6 +163,7 @@ _global_defaults = {
             "email": None,
             "modules": None,
             "run": None,
+            "start_in_temp": True,
         },
     }
 }
@@ -175,7 +177,7 @@ def format_config_yaml(file_obj):
     file_obj : str or file_like
 
     """
-    logging.info("reading config: {}".format(file_obj))
+    logger.info("reading config: {}".format(file_obj))
 
     if isinstance(file_obj, basestring):
         file_obj = pathlib.Path(file_obj)

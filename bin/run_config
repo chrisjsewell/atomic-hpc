@@ -7,8 +7,10 @@ import logging.handlers
 from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.deploy_runs import deploy_runs
 
+logger = logging.getLogger('atomic_hpc.run_config')
 
-def run(fpath, basepath="", log_level='INFO', ignore_fail=False, overwrite=False):
+
+def run(fpath, basepath="", log_level='INFO', ignore_fail=False, overwrite=False, test_run=False):
     """
 
     Parameters
@@ -20,6 +22,8 @@ def run(fpath, basepath="", log_level='INFO', ignore_fail=False, overwrite=False
         if True; if a command line execution fails continue the run
     overwrite: bool
         if True; if a run's output directory already exists, then remove it
+    test_run: bool
+        if True don't run any executables
 
     Returns
     -------
@@ -52,7 +56,11 @@ def run(fpath, basepath="", log_level='INFO', ignore_fail=False, overwrite=False
     runs = format_config_yaml(fpath)
     exists_error = not overwrite
     exec_errors = not ignore_fail
-    deploy_runs(runs, basepath, exists_error=exists_error, exec_errors=exec_errors)
+
+    try:
+        deploy_runs(runs, basepath, exists_error=exists_error, exec_errors=exec_errors, test_run=test_run)
+    except RuntimeError as err:
+        logger.critical(err)
 
 
 class ErrorParser(argparse.ArgumentParser):
@@ -81,6 +89,9 @@ if __name__ == "__main__":
     parser.add_argument("-log", "--log-level", type=str, default='info',
                         choices=['debug', 'info', 'warning', 'error'],
                         help='the logging level to output to screen/file')
+    parser.add_argument("--test-run", action="store_true",
+                        help='do not run any executables')
+
 
     args = parser.parse_args()
     options = vars(args)

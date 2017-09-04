@@ -145,8 +145,8 @@ def context(request):
 def test_get_inputs(context):
     runs, path = context
     inputs = get_inputs(runs[0], path)
-    assert inputs["files"] == {'frag.in': 'replace frag', 'other.in': 'another file'}
-    assert inputs["scripts"] == {"script.in": 'test value replace frag'}
+    assert sorted(list(inputs["files"].keys())) == ['frag.in', 'other.in']
+    assert list(inputs["scripts"].keys()) == ["script.in"]
     assert inputs["cmnds"] == ["echo test_echo > output.txt", "cat script.in > output2.txt",
                                "mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt",
                                "mkdir deletefolder; echo c > deletefolder/some.text"]
@@ -233,7 +233,7 @@ def test_create_qsub(context):
 #PBS -j oe
 
 
-echo "<qstat -f $PBS_JOBID>"
+echo "<qstat -f $PBS_JOBID>"vi
 qstat -f $PBS_JOBID
 echo "</qstat -f $PBS_JOBID>"
 
@@ -260,21 +260,32 @@ echo Running: 1_run_test_name
 # load required modules
 module load quantum-espresso intel-suite mpi
 
-if [ -z ${TMPDIR+x} ]; then 
-    echo "the TMPDIR variable does not exist"  1>&2
-    exit 1
-fi
-if [ -z "TMPDIR" ]; then
-    echo "the TMPDIR variable is empty"  1>&2
-    exit 1
-fi
-echo "running in: $TMPDIR"
-cd $TMPDIR
+start_in_temp=true
 
-# copy required input files from $WORKDIR to $TMPDIR
-cp -pR path/to/dir/* $TMPDIR
+if [ "$start_in_temp" = true ] ; then
 
-# main commands to run (in $TMPDIR)
+    if [ -z ${TMPDIR+x} ]; then 
+        echo "the TMPDIR variable does not exist"  1>&2
+        exit 1
+    fi
+    if [ -z "TMPDIR" ]; then
+        echo "the TMPDIR variable is empty"  1>&2
+        exit 1
+    fi
+    echo "running in: $TMPDIR"
+    cd $TMPDIR
+    
+    # copy required input files from $WORKDIR to $TMPDIR
+    cp -pR path/to/dir/* $TMPDIR
+
+else
+
+    echo "running in: path/to/dir"
+    cd path/to/dir
+    
+fi
+
+# main commands to run
 echo test_echo > output.txt
 cat script.in > output2.txt
 mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt
@@ -288,10 +299,14 @@ for path in $(find tmp.*); do if [ -e $path ]; then rm -Rf $path; fi; done
 # rename output files
 find . -depth -name '*2.txt*' -execdir bash -c 'mv -i "$1" "${1//2.txt/2.other}"' bash {} \;
 
-# copy output files from $TMPDIR to $WORKDIR
-cp -pR $TMPDIR/* path/to/dir
+if [ "$start_in_temp" = true ] ; then
 
-cd -
+    # copy output files from $TMPDIR to $WORKDIR
+    cp -pR $TMPDIR/* path/to/dir
+    
+    cd path/to/dir
+    
+fi
 
 """
     #print(out)

@@ -109,8 +109,9 @@ def get_inputs(run, config_path):
                         raise ValueError("run {0}: files path does not exist: {1}".format(run["id"], fpath))
                     if not folder.isfile(fpath):
                         raise ValueError("run {0}: files path is not a file: {1}".format(run["id"], fpath))
+                    fstat = folder.stat(fpath)
                     with folder.open(fpath) as f:
-                        files[fid] = (folder.name(fpath), f.read())
+                        files[fid] = (folder.name(fpath), (f.read(), fstat))
 
             if run["input"]["scripts"] is not None:
                 for spath in run["input"]["scripts"]:
@@ -125,6 +126,7 @@ def get_inputs(run, config_path):
                     if scriptname in scripts:
                         raise ValueError("run {0}: two scripts with same name: {1}".format(run["id"], scriptname))
 
+                    sstat = folder.stat(spath)
                     with folder.open(spath) as f:
                         script = f.read()
 
@@ -142,9 +144,9 @@ def get_inputs(run, config_path):
                         var = tag[3:-1]
                         if var not in files:
                             raise KeyError(file_error.format(id=run["id"], path_name=var, spath=spath))
-                        script = script.replace(tag, files[var][1])
+                        script = script.replace(tag, files[var][1][0])
 
-                    scripts[scriptname] = script
+                    scripts[scriptname] = (script, sstat)
 
     # get commands
     environment = run["environment"]
@@ -155,7 +157,7 @@ def get_inputs(run, config_path):
     return {"files": dict(files.values()), "scripts": scripts, "cmnds": cmnds}
 
 
-def deploy_runs(runs, root_path, exists_error=False, exec_errors=False):
+def deploy_runs(runs, root_path, exists_error=False, exec_errors=False, test_run=False):
     """
 
     Parameters
@@ -188,10 +190,12 @@ def deploy_runs(runs, root_path, exists_error=False, exec_errors=False):
             continue
 
         if run["environment"] in ["unix", "windows"]:
-            if not _deploy_run_normal(run, inputs, root_path, exists_error=exists_error, exec_errors=exec_errors):
+            if not _deploy_run_normal(run, inputs, root_path,
+                                      exists_error=exists_error, exec_errors=exec_errors, test_run=test_run):
                 failed_runs.append("{0}: {1}".format(run["id"], run["name"]))
         elif run["environment"] == "qsub":
-            if not _deploy_run_qsub(run, inputs, root_path, exists_error=exists_error, exec_errors=exec_errors):
+            if not _deploy_run_qsub(run, inputs, root_path,
+                                    exists_error=exists_error, exec_errors=exec_errors, test_run=test_run):
                 failed_runs.append("{0}: {1}".format(run["id"], run["name"]))
         else:
             raise ValueError("unknown environment: {}".format(run["environment"]))
@@ -200,7 +204,7 @@ def deploy_runs(runs, root_path, exists_error=False, exec_errors=False):
         raise RuntimeError("The following runs did not complete: \n{}".format("\n".join(failed_runs)))
 
 
-def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=False):
+def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=False, test_run=False):
     """ deploy run and child runs (recursively)
 
     Parameters
@@ -260,25 +264,31 @@ def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=F
             run["created"] = time.strftime("%c")
             yaml.dump(run, f)
 
-        for fname, fcontent in files.items():
+        for fname, (fcontent, fstat) in files.items():
             with folder.open(os.path.join(outdir, fname), 'w') as f:
                 f.write(fcontent)
-        for sname, scontent in scripts.items():
+            folder.chmod(os.path.join(outdir, fname), fstat.st_mode)
+
+        for sname, (scontent, sstat) in scripts.items():
             with folder.open(os.path.join(outdir, sname), 'w') as f:
                 f.write(scontent)
+            folder.chmod(os.path.join(outdir, sname), sstat.st_mode)
 
-        # run commands
-        for cmndline in cmnds:
-            logging.info("executing: {}".format(cmndline))
-            try:
-                folder.exec_cmnd(cmndline, outdir, raise_error=True)
-            except RuntimeError:
-                if exec_errors:
-                    logger.critical("aborting run on command line failure: {}".format(cmndline))
-                    return False
-                logger.error("command line failure: {}".format(cmndline))
+        if test_run:
+            logger.info("test_run=True, so skipping command line execution")
+        else:
+            # run commands
+            for cmndline in cmnds:
+                logging.info("executing: {}".format(cmndline))
+                try:
+                    folder.exec_cmnd(cmndline, outdir, raise_error=True)
+                except RuntimeError:
+                    if exec_errors:
+                        logger.critical("aborting run on command line failure: {}".format(cmndline))
+                        return False
+                    logger.error("command line failure: {}".format(cmndline))
 
-            logging.info("finished execution")
+                logging.info("finished execution")
 
         logger.info("finalising run: {0}: {1}".format(run["id"], run["name"]))
 
@@ -306,6 +316,7 @@ def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=F
                         folder.rename(path, newname)
     return True
 
+# TODO should I use $PBS_O_WORKDIR instead of directly setting wrkdir
 _qsub_top_template = """#!/bin/bash --login
 #PBS -N {jobname:.14}
 #PBS -l walltime={walltime}
@@ -340,21 +351,32 @@ echo Running: {run_name}
 # load required modules
 {load_modules}
 
-if [ -z ${{TMPDIR+x}} ]; then 
-    echo "the TMPDIR variable does not exist"  1>&2
-    exit 1
-fi
-if [ -z "TMPDIR" ]; then
-    echo "the TMPDIR variable is empty"  1>&2
-    exit 1
-fi
-echo "running in: $TMPDIR"
-cd $TMPDIR
+start_in_temp={start_in_temp}
 
-# copy required input files from $WORKDIR to $TMPDIR
-cp -pR {wrkpath}/* $TMPDIR
+if [ "$start_in_temp" = true ] ; then
 
-# main commands to run (in $TMPDIR)
+    if [ -z ${{TMPDIR+x}} ]; then 
+        echo "the TMPDIR variable does not exist"  1>&2
+        exit 1
+    fi
+    if [ -z "TMPDIR" ]; then
+        echo "the TMPDIR variable is empty"  1>&2
+        exit 1
+    fi
+    echo "running in: $TMPDIR"
+    cd $TMPDIR
+    
+    # copy required input files from $WORKDIR to $TMPDIR
+    cp -pR {wrkpath}/* $TMPDIR
+
+else
+
+    echo "running in: {wrkpath}"
+    cd {wrkpath}
+    
+fi
+
+# main commands to run
 {exec_run}
 
 # remove output files
@@ -363,10 +385,14 @@ cp -pR {wrkpath}/* $TMPDIR
 # rename output files
 {rename}
 
-# copy output files from $TMPDIR to $WORKDIR
-cp -pR $TMPDIR/* {wrkpath}
+if [ "$start_in_temp" = true ] ; then
 
-cd -
+    # copy output files from $TMPDIR to $WORKDIR
+    cp -pR $TMPDIR/* {wrkpath}
+    
+    cd {wrkpath}
+    
+fi
 
 """
 
@@ -434,7 +460,9 @@ def _create_qsub(run, wrkpath, cmnds):
     # get modules to load
     load_modules = "module load " + " ".join(qsub["modules"]) if qsub["modules"] is not None else ""
 
-    # exec runs (in $TMPDIR)
+    start_in_temp = "true" if qsub["start_in_temp"] else "false"
+
+    # exec runs
     exec_run = "\n".join(cmnds)
 
     # remove
@@ -457,17 +485,18 @@ def _create_qsub(run, wrkpath, cmnds):
     out = _qsub_top_template.format(run_name=run_name, wrkpath=wrkpath,
                                     jobname=jobname, walltime=walltime, nnodes=nnodes,
                                     ncores=ncores, nprocs=nprocs, pbs_optional=pbs_optional,
-                                    load_modules=load_modules,
+                                    load_modules=load_modules, start_in_temp=start_in_temp,
                                     exec_run=exec_run, remove=remove, rename=rename)
     return out
 
 
 # TODO should do source loading more flexibly
 # TODO something is not loaded to get emails
-_QSUB_CMNDLINE = "source /etc/bashrc; source /etc/profile; qsub run.qsub"
+#_QSUB_CMNDLINE = "source /etc/bashrc; source /etc/profile; qsub run.qsub"
+_QSUB_CMNDLINE = 'bash -l -c "qsub run.qsub"'
 
 
-def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=False):
+def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=False, test_run=False):
     """ deploy run and child runs (recursively)
 
     Parameters
@@ -527,13 +556,14 @@ def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=Fal
             run["created"] = time.strftime("%c")
             yaml.dump(run, f)
 
-        for fname, fcontent in files.items():
+        for fname, (fcontent, fstat) in files.items():
             with folder.open(os.path.join(outdir, fname), 'w') as f:
                 f.write(fcontent)
-        for sname, scontent in scripts.items():
+            folder.chmod(os.path.join(outdir, fname), fstat.st_mode)
+        for sname, (scontent, sstat) in scripts.items():
             with folder.open(os.path.join(outdir, sname), 'w') as f:
                 f.write(scontent)
-
+            folder.chmod(os.path.join(outdir, sname), sstat.st_mode)
 
         # make qsub
         abspath = folder.getabs(outdir)
@@ -541,14 +571,18 @@ def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=Fal
         with folder.open(os.path.join(outdir, "run.qsub"), 'w') as f:
             f.write(unicode(qsub))
 
-        # run
-        cmndline = _QSUB_CMNDLINE
-        try:
-            folder.exec_cmnd(cmndline, outdir, raise_error=True)
-        except RuntimeError:
-            if exec_errors:
-                logger.critical("aborting run on command line failure: {}".format(cmndline))
-                return False
-            logger.error("command line failure: {}".format(cmndline))
+        if test_run:
+            logger.info("test_run=True, so skipping command line execution")
+        else:
+            # run
+            cmndline = _QSUB_CMNDLINE
+            try:
+                folder.exec_cmnd(cmndline, outdir, raise_error=True)
+                logger.info("successfully submitted: {}".format(cmndline))
+            except RuntimeError:
+                if exec_errors:
+                    logger.critical("aborting run on command line failure: {}".format(cmndline))
+                    return False
+                logger.error("command line failure: {}".format(cmndline))
 
     return True

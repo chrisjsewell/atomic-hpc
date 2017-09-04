@@ -111,6 +111,41 @@ class RemotePath(VirtualDir):
         return stat.S_ISREG(self._sftp.stat(path).st_mode)
 
     @renew_connection
+    def stat(self, path):
+        """ Retrieve information about a file
+
+        Parameters
+        ----------
+        path: str
+
+        Returns
+        -------
+        attr: object
+            see os.stat, includes st_mode, st_size, st_uid, st_gid, st_atime, and st_mtime attributes
+
+        """
+        return self._sftp.stat(path)
+
+    @renew_connection
+    def chmod(self, path, mode):
+        """ Change the mode (permissions) of a file
+
+        Parameters
+        ----------
+        path: str
+        mode: int
+            new permissions (see os.chmod)
+
+        Examples
+        --------
+        To make a file executable
+        cur_mode = folder.stat("exec.sh").st_mode
+        folder.chmod("exec.sh", cur_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH )
+
+        """
+        return self._sftp.chmod(path, mode)
+
+    @renew_connection
     def getabs(self, path):
         """ get the absolute path
 
@@ -144,6 +179,7 @@ class RemotePath(VirtualDir):
         for part in parts:
             curdir = os.path.join(curdir, part)
             if not self.exists(curdir):
+                logger.debug("making sub-directory: {}".format(curdir))
                 self._sftp.mkdir(curdir)
 
     @renew_connection
@@ -188,7 +224,7 @@ class RemotePath(VirtualDir):
         if not self.isdir(path):
             raise IOError("root is not a directory: {}".format(path))
         print(os.path.join(path, "**", "*"))
-        logger.info("removing: {0}".format(list(self.glob(os.path.join(path, "**", "*")))))
+        logger.debug("removing: {0}".format(list(self.glob(os.path.join(path, "**", "*")))))
         for subpath in reversed(sorted(self.glob(os.path.join(path, "**", "*")))):
             self.remove(subpath)
         if self.exists(path):
@@ -318,6 +354,7 @@ class RemotePath(VirtualDir):
         -------
 
         """
+        logger.debug("opening {0} in mode '{1}'".format(path, mode))
         # current version of paramiko has a bug returning bytes instead of text (paramiko/paramiko#403)
         with self._sftp.open(path, mode) as file_obj:
             if 'b' not in mode:

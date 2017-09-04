@@ -61,6 +61,39 @@ class VirtualDir(object):
         """
         raise NotImplementedError
 
+    def stat(self, path):
+        """ Retrieve information about a file
+
+        Parameters
+        ----------
+        path: str
+
+        Returns
+        -------
+        attr: object
+            see os.stat, includes st_mode, st_size, st_uid, st_gid, st_atime, and st_mtime attributes
+
+        """
+        raise NotImplementedError
+
+    def chmod(self, path, mode):
+        """ Change the mode (permissions) of a file
+
+        Parameters
+        ----------
+        path: str
+        mode: int
+            new permissions (see os.chmod)
+
+        Examples
+        --------
+        To make a file executable
+        cur_mode = folder.stat("exec.sh").st_mode
+        folder.chmod("exec.sh", cur_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH )
+
+        """
+        raise NotImplementedError
+
     def getabs(self, path):
         """
 
