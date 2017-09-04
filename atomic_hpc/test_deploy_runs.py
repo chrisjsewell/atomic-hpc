@@ -233,7 +233,7 @@ def test_create_qsub(context):
 #PBS -j oe
 
 
-echo "<qstat -f $PBS_JOBID>"vi
+echo "<qstat -f $PBS_JOBID>"
 qstat -f $PBS_JOBID
 echo "</qstat -f $PBS_JOBID>"
 

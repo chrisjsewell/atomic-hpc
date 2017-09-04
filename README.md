@@ -233,6 +233,8 @@ runs:
       jobname:
       cores_per_node: 16
       nnodes: 1
+      memory_per_node: 1gb
+      tmpspace: 500gb # minimum free space required on the temporary directory
       walltime: 1:00:00
       queue: queue_name
       email: bob@hotmail.com # this is not currently working

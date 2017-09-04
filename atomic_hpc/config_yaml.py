@@ -29,10 +29,12 @@ _config_schema = {
 _process_qsub_schema = {
     "type": "object",
     "required": ["nnodes", "cores_per_node", "walltime", "queue", "modules",
-                 "run", "jobname", "start_in_temp"],
+                 "run", "jobname", "start_in_temp", "tmpspace", "memory_per_node"],
     "properties": {
 
         "cores_per_node": {"type": "integer"},
+        "tmpspace": {"type": ["integer", "string", "null"]},
+        "memory_per_node": {"type": ["integer", "string", "null"]},
         "nnodes": {"type": "integer"},
         "walltime": {"type": "string", "format": "date-time"},
         "queue": {"type": ["string", "null"]},
@@ -164,6 +166,8 @@ _global_defaults = {
             "modules": None,
             "run": None,
             "start_in_temp": True,
+            "memory_per_node": None,
+            "tmpspace": None,
         },
     }
 }

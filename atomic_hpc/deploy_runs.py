@@ -320,7 +320,7 @@ def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=F
 _qsub_top_template = """#!/bin/bash --login
 #PBS -N {jobname:.14}
 #PBS -l walltime={walltime}
-#PBS -l select={nnodes}:ncpus={ncores}
+#PBS -l select={nnodes}:ncpus={ncores}{additional_resources}
 #PBS -j oe
 {pbs_optional}
 
@@ -448,6 +448,11 @@ def _create_qsub(run, wrkpath, cmnds):
     nnodes = qsub["nnodes"]
     ncores = qsub["cores_per_node"]
     nprocs = nnodes * ncores
+    additional_resources = ""
+    if qsub["tmpspace"] is not None:
+        additional_resources += ":tmpspace={}".format(qsub["tmpspace"])
+    if qsub["memory_per_node"] is not None:
+        additional_resources += ":mem={}".format(qsub["memory_per_node"])
     pbs_optional = ""
     pbs_optional += "#PBS -q \n" + qsub["queue"] if qsub["queue"] is not None else ""
     # Sends email to the submitter when the job begins/ends/aborts
@@ -484,7 +489,8 @@ def _create_qsub(run, wrkpath, cmnds):
 
     out = _qsub_top_template.format(run_name=run_name, wrkpath=wrkpath,
                                     jobname=jobname, walltime=walltime, nnodes=nnodes,
-                                    ncores=ncores, nprocs=nprocs, pbs_optional=pbs_optional,
+                                    ncores=ncores, nprocs=nprocs, additional_resources=additional_resources,
+                                    pbs_optional=pbs_optional,
                                     load_modules=load_modules, start_in_temp=start_in_temp,
                                     exec_run=exec_run, remove=remove, rename=rename)
     return out
