@@ -6,7 +6,7 @@ import sys
 try:
     from builtins import input
 except ImportError:
-    from builtin import input
+    input = raw_input
 try:
     from distutils.util import strtobool
 except ImportError:
