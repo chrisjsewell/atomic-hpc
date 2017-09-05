@@ -1,3 +1,4 @@
+import logging
 import os
 from fnmatch import fnmatch
 
@@ -154,3 +155,63 @@ def walk_path(path, listdir=os.listdir,
         subpath = os.path.join(path, dname)
         for newpath, dirnames, filenames in walk_path(subpath, listdir, isfile, isfolder):
             yield newpath, dirnames, filenames
+
+
+def add_loglevel(name, levelnum, methodname=None):
+    """
+    Comprehensively adds a new logging level to the `logging` module and the
+    currently configured logging class.
+
+    Adapted from: https://stackoverflow.com/a/35804945/5033292
+
+    Parameters
+    -----------
+    name: str
+        becomes an attribute of the `logging` module with the value
+        `levelnum`. `methodname` becomes a convenience method for both `logging`
+        itself and the class returned by `logging.getLoggerClass()` (usually just
+        `logging.Logger`). If `methodname` is not specified, `name.lower()` is used.
+    levelnum: int
+    methodname: str or None
+
+    Notes
+    -----
+    To avoid accidental clobberings of existing attributes, this method will
+    raise an `AttributeError` if the level name is already an attribute of the
+    `logging` module or if the method name is already present
+
+    Example
+    -------
+    >>> add_loglevel('TRACE',logging.DEBUG - 5)
+    >>> logging.getLogger(__name__).setLevel("TRACE")
+    >>> logging.getLogger(__name__).trace('that worked')
+    >>> logging.trace('so did this')
+    >>> logging.TRACE
+    5
+
+    """
+    if not methodname:
+        methodname = name.lower()
+
+    if hasattr(logging, name):
+       raise AttributeError('{} already defined in logging module'.format(name))
+    if hasattr(logging, methodname):
+       raise AttributeError('{} already defined in logging module'.format(methodname))
+    if hasattr(logging.getLoggerClass(), methodname):
+       raise AttributeError('{} already defined in logger class'.format(methodname))
+
+
+    # This method was inspired by the answers to Stack Overflow post
+    # http://stackoverflow.com/q/2183233/2988730, especially
+    # http://stackoverflow.com/a/13638084/2988730
+    def logForLevel(self, message, *args, **kwargs):
+        if self.isEnabledFor(levelnum):
+            self._log(levelnum, message, args, **kwargs)
+    def logToRoot(message, *args, **kwargs):
+        if logging.root.isEnabledFor(levelnum):
+            logging.root._log(levelnum, message, args, **kwargs)
+
+    logging.addLevelName(levelnum, name)
+    setattr(logging, name, levelnum)
+    setattr(logging.getLoggerClass(), methodname, logForLevel)
+    setattr(logging, methodname, logToRoot)

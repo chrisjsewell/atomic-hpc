@@ -84,6 +84,8 @@ Jobs can be submitted to remote hosts and, optionally,
 `PBS <https://en.wikipedia.org/wiki/Portable_Batch_System>`__ type
 systems.
 
+**config\_remote.yaml**
+
 .. code:: yaml
 
     runs:
@@ -108,6 +110,12 @@ systems.
                 - mpi
             run: 
                 - mpiexec pw.x -i script2.in > main.qe.scf.out  
+
+To retrieve outputs from a remote host, once all processes have run:
+
+::
+
+    >> retrieve_config config_remote.yaml -o path/to/local/outputs
 
 Inputs
 ------
@@ -257,7 +265,8 @@ Full Configuration Options
           tmpspace: 500gb # minimum free space required on the temporary directory
           walltime: 1:00:00
           queue: queue_name
-          email: bob@hotmail.com # this is not currently working
+          email: bob@hotmail.com # send email on job start/end
+          # NB: the emailling feature has recently been disabled on the Imperial HPC
           modules:
             - module1
             - module2

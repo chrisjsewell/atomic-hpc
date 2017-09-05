@@ -57,5 +57,5 @@ with io.open('README.rst') as readme:
                 "wrong-user-key"
             ],
         },
-        scripts=['bin/run_config'],
+        scripts=['bin/run_config', "bin/retrieve_config"],
     )

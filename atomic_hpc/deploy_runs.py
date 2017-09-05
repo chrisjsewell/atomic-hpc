@@ -24,12 +24,17 @@ except NameError:
     unicode = str
 
 from atomic_hpc import context_folder
+from atomic_hpc.utils import add_loglevel
 import atomic_hpc
 
 
 _REGEX_VAR = r"(?:\@v\{[^}]+\})"
 _REGEX_FILE = r"(?:\@f\{[^}]+\})"
 
+try:
+    add_loglevel("EXEC", logging.INFO + 1)
+except AttributeError:
+    pass
 logger = logging.getLogger(__name__)
 
 
@@ -57,7 +62,7 @@ def _replace_in_cmnd(cmndline, variables, rid):
     return cmndline
 
 
-# TODO script/file contents shouldn't all be stored in memory (but how to do consistently for local/remote?)
+# TODO should have option to store script/file contents in tempdir (between input & output)
 def get_inputs(run, config_path):
     """ get the inputs and resolve regex insertions
 
@@ -157,7 +162,7 @@ def get_inputs(run, config_path):
     return {"files": dict(files.values()), "scripts": scripts, "cmnds": cmnds}
 
 
-def deploy_runs(runs, root_path, exists_error=False, exec_errors=False, test_run=False):
+def deploy_runs(runs, root_path, if_exists="abort", exec_errors=False, test_run=False):
     """
 
     Parameters
@@ -166,14 +171,18 @@ def deploy_runs(runs, root_path, exists_error=False, exec_errors=False, test_run
         runs
     root_path: str or path_like
         the path of the config file
-    exists_error: bool
-        if True, raise an IOError if the output path already exists
+    if_exists: ["abort", "remove", "use"]
+        either; raise an IOError if the output path already exists, remove the output path or use it without change
     exec_errors: bool
         if True, raise Error if exec commands return with errorcode
+    test_run: bool
+        if True, don't run any executables
 
     Returns
     -------
     """
+    if if_exists not in ["abort", "remove", "use"]:
+        raise ValueError("if_exists must be one of; abort, remove or append")
     failed_runs = []
 
     for run in runs:
@@ -190,12 +199,12 @@ def deploy_runs(runs, root_path, exists_error=False, exec_errors=False, test_run
             continue
 
         if run["environment"] in ["unix", "windows"]:
-            if not _deploy_run_normal(run, inputs, root_path,
-                                      exists_error=exists_error, exec_errors=exec_errors, test_run=test_run):
+            if not deploy_run_normal(run, inputs, root_path, if_exists=if_exists, exec_errors=exec_errors,
+                                     test_run=test_run):
                 failed_runs.append("{0}: {1}".format(run["id"], run["name"]))
         elif run["environment"] == "qsub":
-            if not _deploy_run_qsub(run, inputs, root_path,
-                                    exists_error=exists_error, exec_errors=exec_errors, test_run=test_run):
+            if not deploy_run_qsub(run, inputs, root_path, if_exists=if_exists, exec_errors=exec_errors,
+                                   test_run=test_run):
                 failed_runs.append("{0}: {1}".format(run["id"], run["name"]))
         else:
             raise ValueError("unknown environment: {}".format(run["environment"]))
@@ -204,7 +213,62 @@ def deploy_runs(runs, root_path, exists_error=False, exec_errors=False, test_run
         raise RuntimeError("The following runs did not complete: \n{}".format("\n".join(failed_runs)))
 
 
-def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=False, test_run=False):
+def create_output_dir(folder, run, if_exists, files, scripts):
+    """
+
+    Parameters
+    ----------
+    folder: atomic_hpc.context_folder.abstract.VirtualDir
+    run: dict
+    if_exists: ["abort", "remove", "use"]
+    files: dict
+    scripts: dict
+
+    Returns
+    -------
+
+    """
+    outdir = "{0}_{1}".format(run["id"], run["name"])
+    if folder.exists(outdir):
+        if if_exists == "abort":
+            logger.critical("aborting run: output dir already exists: {}".format(outdir))
+            return False
+        elif if_exists == "remove":
+            logger.info("removing existing output dir: {}".format(outdir))
+            folder.rmtree(outdir)
+            folder.makedirs(outdir)
+        else:
+            logger.info("using existing output dir: {}".format(outdir))
+    else:
+        folder.makedirs(outdir)
+
+    # dump a record of the run configuration to output
+    run_config_path = os.path.join(outdir, "config_{}.yaml".format(run["id"]))
+    i = 1
+    while folder.exists(run_config_path):
+        run_config_path = os.path.join(outdir, "config_{0}({1}).yaml".format(run["id"], i))
+        i += 1
+    with folder.open(run_config_path, "w") as f:
+        yaml = YAML()
+        yaml.indent(mapping=2, sequence=4, offset=2)
+        run["config_version"] = atomic_hpc.__version__
+        run["created"] = time.strftime("%c")
+        yaml.dump(run, f)
+
+    for fname, (fcontent, fstat) in files.items():
+        with folder.open(os.path.join(outdir, fname), 'w') as f:
+            f.write(fcontent)
+        folder.chmod(os.path.join(outdir, fname), fstat.st_mode)
+
+    for sname, (scontent, sstat) in scripts.items():
+        with folder.open(os.path.join(outdir, sname), 'w') as f:
+            f.write(scontent)
+        folder.chmod(os.path.join(outdir, sname), sstat.st_mode)
+
+    return outdir
+
+
+def deploy_run_normal(run, inputs, root_path, if_exists="abort", exec_errors=False, test_run=False):
     """ deploy run and child runs (recursively)
 
     Parameters
@@ -213,15 +277,20 @@ def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=F
         top level run
     root_path: str or path_like
         the path to resolve (local) relative paths from
-    exists_error: bool
-        if True, raise an IOError if the output path already exists
+    if_exists: ["abort", "remove", "use"]
+        either; raise an IOError if the output path already exists, remove the output path or use it without change
     exec_errors: bool
         if True, raise Error if exec commands return with errorcode
+    test_run: bool
+        if True, don't run any executables
 
     Returns
     -------
 
     """
+    if if_exists not in ["abort", "remove", "use"]:
+        raise ValueError("if_exists must be one of; abort, remove or append")
+
     files = inputs["files"]
     scripts = inputs["scripts"]
     cmnds = inputs["cmnds"]
@@ -247,39 +316,14 @@ def _deploy_run_normal(run, inputs, root_path, exists_error=False, exec_errors=F
         logger.info("executing run: {0}: {1}".format(run["id"], run["name"]))
 
         # create output folder
-        outdir = "{0}_{1}".format(run["id"], run["name"])
-        if folder.exists(outdir):
-            if exists_error:
-                logger.critical("aborting run: output dir already exists: {}".format(outdir))
-                return False
-            logger.info("removing existing output dir: {}".format(outdir))
-            folder.rmtree(outdir)
-        folder.makedirs(outdir)
-
-        # dump a record of the run configuration to output
-        with folder.open(os.path.join(outdir, "config_{}.yaml".format(run["id"])), "w") as f:
-            yaml = YAML()
-            yaml.indent(mapping=2, sequence=4, offset=2)
-            run["config_version"] = atomic_hpc.__version__
-            run["created"] = time.strftime("%c")
-            yaml.dump(run, f)
-
-        for fname, (fcontent, fstat) in files.items():
-            with folder.open(os.path.join(outdir, fname), 'w') as f:
-                f.write(fcontent)
-            folder.chmod(os.path.join(outdir, fname), fstat.st_mode)
-
-        for sname, (scontent, sstat) in scripts.items():
-            with folder.open(os.path.join(outdir, sname), 'w') as f:
-                f.write(scontent)
-            folder.chmod(os.path.join(outdir, sname), sstat.st_mode)
+        outdir = create_output_dir(folder, run, if_exists, files, scripts)
 
         if test_run:
             logger.info("test_run=True, so skipping command line execution")
         else:
             # run commands
             for cmndline in cmnds:
-                logging.info("executing: {}".format(cmndline))
+                logger.exec("{0}-{1} running cmnd: {2}".format(run["id"], run["name"], cmndline))
                 try:
                     folder.exec_cmnd(cmndline, outdir, raise_error=True)
                 except RuntimeError:
@@ -496,30 +540,34 @@ def _create_qsub(run, wrkpath, cmnds):
     return out
 
 
-# TODO should do source loading more flexibly
-# TODO something is not loaded to get emails
 #_QSUB_CMNDLINE = "source /etc/bashrc; source /etc/profile; qsub run.qsub"
 _QSUB_CMNDLINE = 'bash -l -c "qsub run.qsub"'
 
 
-def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=False, test_run=False):
+def deploy_run_qsub(run, inputs, root_path, if_exists="abort", exec_errors=False, test_run=False):
     """ deploy run and child runs (recursively)
 
     Parameters
     ----------
     run: dict
         top level run
+    inputs: dict
     root_path: str or path_like
         the path to resolve (local) relative paths from
-    exists_error: bool
-        if True, abort tun if the output path already exists
+    if_exists: ["abort", "remove", "use"]
+        either; raise an IOError if the output path already exists, remove the output path or use it without change
     exec_errors: bool
         if True, abort run if exec commands return with errorcode
+    test_run: bool
+        if True, don't run any executables
 
     Returns
     -------
 
     """
+    if if_exists not in ["abort", "remove", "use"]:
+        raise ValueError("if_exists must be one of; abort, remove or append")
+
     files = inputs["files"]
     scripts = inputs["scripts"]
     cmnds = inputs["cmnds"]
@@ -545,31 +593,7 @@ def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=Fal
         logger.info("executing qsub run: {0}: {1}".format(run["id"], run["name"]))
 
         # create output folder
-        outdir = "{0}_{1}".format(run["id"], run["name"])
-        if folder.exists(outdir):
-            if exists_error:
-                logger.critical("aborting run: output dir already exists: {}".format(outdir))
-                return False
-            logger.info("removing existing output dir: {}".format(outdir))
-            folder.rmtree(outdir)
-        folder.makedirs(outdir)
-
-        # dump a record of the run configuration to output
-        with folder.open(os.path.join(outdir, "config_{}.yaml".format(run["id"])), "w") as f:
-            yaml = YAML()
-            yaml.indent(mapping=2, sequence=4, offset=2)
-            run["config_version"] = atomic_hpc.__version__
-            run["created"] = time.strftime("%c")
-            yaml.dump(run, f)
-
-        for fname, (fcontent, fstat) in files.items():
-            with folder.open(os.path.join(outdir, fname), 'w') as f:
-                f.write(fcontent)
-            folder.chmod(os.path.join(outdir, fname), fstat.st_mode)
-        for sname, (scontent, sstat) in scripts.items():
-            with folder.open(os.path.join(outdir, sname), 'w') as f:
-                f.write(scontent)
-            folder.chmod(os.path.join(outdir, sname), sstat.st_mode)
+        outdir = create_output_dir(folder, run, if_exists, files, scripts)
 
         # make qsub
         abspath = folder.getabs(outdir)
@@ -582,6 +606,7 @@ def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=Fal
         else:
             # run
             cmndline = _QSUB_CMNDLINE
+            logger.exec("{0}-{1} running cmnd: {2}".format(run["id"], run["name"], cmndline))
             try:
                 folder.exec_cmnd(cmndline, outdir, raise_error=True)
                 logger.info("successfully submitted: {}".format(cmndline))
@@ -592,3 +617,86 @@ def _deploy_run_qsub(run, inputs, root_path, exists_error=False, exec_errors=Fal
                 logger.error("command line failure: {}".format(cmndline))
 
     return True
+
+
+# TODO add tests for retrieve_outputs
+def retrieve_outputs(runs, local_path, root_path, if_exists="abort"):
+    """
+
+    Parameters
+    ----------
+    runs: list
+        runs
+    local_path: str or path_like
+        the path to output to
+    root_path: str or path_like
+        the path of the config file
+    if_exists: ["abort", "remove", "use"]
+        either; raise an IOError if the output path already exists, remove the output path or use it without change
+
+    Returns
+    -------
+    """
+    if if_exists not in ["abort", "remove", "use"]:
+        raise ValueError("if_exists must be one of; abort, remove or append")
+    failed_runs = []
+
+    if isinstance(local_path, basestring):
+        local_path = pathlib.Path(local_path)
+    # try:
+    #     local_path.makedirs()
+    # except IOError:
+    #     pass
+
+    for run in runs:
+
+        logger.info("retrieving outputs for run: {0}: {1}".format(run["id"], run["name"]))
+
+        outname = "{0}_{1}".format(run["id"], run["name"])
+
+        # make local
+        with context_folder.change_dir(local_path) as local:
+
+            if local.exists(outname):
+                if if_exists == "abort":
+                    logger.critical("aborting run: output dir already exists: {}".format(outname))
+                    failed_runs.append("{0}: {1}".format(run["id"], run["name"]))
+                    continue
+                elif if_exists == "remove":
+                    logger.info("removing existing output dir: {}".format(outname))
+                    local.rmtree(outname)
+                    local.makedirs(outname)
+                else:
+                    logger.info("using existing output dir: {}".format(outname))
+            else:
+                local.makedirs(outname)
+
+        # open output
+        if isinstance(root_path, basestring):
+            root_path = pathlib.Path(root_path)
+        if run["output"]["path"] is None:
+            outpath = ""
+        else:
+            outpath = run["output"]["path"]
+        if run["output"]["remote"] is None:
+            logger.info("retrieving locally: {0}: {1}".format(run["id"], run["name"]))
+            kwargs = dict(path=root_path.joinpath(outpath))
+        else:
+            logger.info("retrieving remotely: {0}: {1}".format(run["id"], run["name"]))
+            remote = run["output"]["remote"].copy()
+            hostname = remote.pop("hostname")
+            kwargs = dict(path=outpath, remote=True, hostname=hostname, **remote)
+
+        with context_folder.change_dir(**kwargs) as folder:
+
+            if not folder.exists(outname):
+                logger.critical("the output path does not exist: {}".format(outname))
+                failed_runs.append("{0}: {1}".format(run["id"], run["name"]))
+                continue
+
+            logger.info("copying {0} to {1}".format(outname, local_path))
+            for pname in folder.glob(os.path.join(outname, "*")):
+                folder.copy_to(pname, local_path.joinpath(outname))
+
+    if failed_runs:
+        raise RuntimeError("The following runs did not complete: \n{}".format("\n".join(failed_runs)))

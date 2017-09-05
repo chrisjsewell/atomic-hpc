@@ -17,7 +17,7 @@ from jsonextended.utils import MockPath
 from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.mockssh import mockserver
 from atomic_hpc.deploy_runs import (get_inputs, deploy_runs, _replace_in_cmnd, _create_qsub,
-                                    _deploy_run_normal, _deploy_run_qsub)
+                                    deploy_run_normal, deploy_run_qsub)
 
 logging.basicConfig(level="INFO")
 
@@ -187,7 +187,7 @@ def test_replace_in_cmnd():
 def test_run_deploy_normal(context):
     runs, path = context
     inputs = get_inputs(runs[0], path)
-    _deploy_run_normal(runs[0], inputs, path)
+    deploy_run_normal(runs[0], inputs, path)
 
     if not hasattr(path, "to_string"):
         assert os.path.exists(os.path.join(str(path), 'output/1_run_test_name/output.txt'))
@@ -216,7 +216,7 @@ def test_run_deploy_normal(context):
 
 def test_full_normal(context):
     runs, path = context
-    deploy_runs(runs, path, exists_error=True, exec_errors=True)
+    deploy_runs(runs, path, if_exists="abort", exec_errors=True)
 
 
 def test_create_qsub(context):
@@ -319,7 +319,7 @@ def test_run_deploy_qsub_fail_local(local_pathlib):
     run["environment"] = "qsub"
     inputs = get_inputs(run, path)
 
-    assert _deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == False
+    assert deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == False
 
 
 def test_run_deploy_qsub_pass_local(local_pathlib):
@@ -339,7 +339,7 @@ def test_run_deploy_qsub_pass_local(local_pathlib):
     try:
         with mock.patch("atomic_hpc.deploy_runs._QSUB_CMNDLINE",
                         "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath))):
-            assert _deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == True
+            assert deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == True
     finally:
         shutil.rmtree(temppath)
 
@@ -378,7 +378,7 @@ def test_run_deploy_qsub_pass_remote(remote):
     try:
         with mock.patch("atomic_hpc.deploy_runs._QSUB_CMNDLINE",
                         "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath))):
-            assert _deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == True
+            assert deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == True
     finally:
         shutil.rmtree(temppath)
 

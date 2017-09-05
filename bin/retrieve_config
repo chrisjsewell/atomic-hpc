@@ -5,25 +5,22 @@ import argparse
 import logging
 import logging.handlers
 from atomic_hpc.config_yaml import format_config_yaml
-from atomic_hpc.deploy_runs import deploy_runs
+from atomic_hpc.deploy_runs import retrieve_outputs
 
-logger = logging.getLogger('atomic_hpc.run_config')
+logger = logging.getLogger('atomic_hpc.retrieve_config')
 
 
-def run(fpath, basepath="", log_level='INFO', ignore_fail=False, if_exists="abort", test_run=False):
+def run(fpath, outpath="", basepath="", log_level='INFO', if_exists="abort"):
     """
 
     Parameters
     ----------
     fpath: str
+    outpath: str
     basepath: str
     log_level: str
-    ignore_fail: bool
-        if True; if a command line execution fails continue the run
     if_exists: ["abort", "remove", "use"]
         either; raise an IOError if the output path already exists, remove the output path or use it without change
-    test_run: bool
-        if True don't run any executables
 
     Returns
     -------
@@ -54,10 +51,9 @@ def run(fpath, basepath="", log_level='INFO', ignore_fail=False, if_exists="abor
     basepath = os.path.abspath(basepath)
 
     runs = format_config_yaml(fpath)
-    exec_errors = not ignore_fail
 
     try:
-        deploy_runs(runs, basepath, if_exists=if_exists, exec_errors=exec_errors, test_run=test_run)
+        retrieve_outputs(runs, outpath, basepath, if_exists=if_exists)
     except RuntimeError as err:
         logger.critical(err)
 
@@ -74,10 +70,12 @@ class ErrorParser(argparse.ArgumentParser):
 if __name__ == "__main__":
 
     parser = ErrorParser(
-        description='use a config.yaml file to run process on a local or remote host'
+        description='retrieve outputs created by processes run from a config.yaml file'
     )
     parser.add_argument("configpath", type=str,
                         help='yaml config file path', metavar='filepath')
+    parser.add_argument("-o", "--outpath", type=str, metavar='str',
+                        help='base path to output to', default=os.path.join(os.getcwd(), "outputs"))
     parser.add_argument("-b", "--basepath", type=str, metavar='str',
                         help='path to use when resolving relative paths in the config file',
                         default=os.getcwd())
@@ -86,13 +84,11 @@ if __name__ == "__main__":
                         help="if a run's output directory already exists either; "
                              "abort the run, remove its contents, or use it without removal "
                              "(existing files will be overwritten)")
-    parser.add_argument("-if", "--ignore-fail", action="store_true",
-                        help='if a command line execution fails continue the run (default is to abort the run)')
     parser.add_argument("-log", "--log-level", type=str, default='info',
                         choices=['debug', 'info', 'exec', 'warning', 'error'],
                         help='the logging level to output to screen/file')
-    parser.add_argument("--test-run", action="store_true",
-                        help='do not run any executables (only create directories and create/copy files)')
+    # parser.add_argument("--test-run", action="store_true",
+    #                     help='do not run any executables (only create directories and create/copy files)')
 
     args = parser.parse_args()
     options = vars(args)

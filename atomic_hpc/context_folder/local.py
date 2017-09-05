@@ -447,7 +447,7 @@ class LocalPath(VirtualDir):
             for _ in range(2):
                 for source, name, line in iter(q.get, None):
                     if name == "out":
-                        logger.info(line.decode("utf-8").strip())
+                        logger.exec(line.decode("utf-8").strip())
                     elif name == "error":
                         logger.warning(line.decode("utf-8").strip())
                     else:

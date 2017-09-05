@@ -1,6 +1,13 @@
+import logging
 import os
 from contextlib import contextmanager
 from fnmatch import fnmatch
+
+from atomic_hpc.utils import add_loglevel
+try:
+    add_loglevel("EXEC", logging.INFO + 1)
+except AttributeError:
+    pass
 
 
 class VirtualDir(object):
