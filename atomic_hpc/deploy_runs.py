@@ -275,6 +275,7 @@ def deploy_run_normal(run, inputs, root_path, if_exists="abort", exec_errors=Fal
     ----------
     run: dict
         top level run
+    inputs: dict
     root_path: str or path_like
         the path to resolve (local) relative paths from
     if_exists: ["abort", "remove", "use"]
@@ -323,7 +324,7 @@ def deploy_run_normal(run, inputs, root_path, if_exists="abort", exec_errors=Fal
         else:
             # run commands
             for cmndline in cmnds:
-                logger.exec("{0}-{1} running cmnd: {2}".format(run["id"], run["name"], cmndline))
+                getattr(logger, "exec")("{0}-{1} running cmnd: {2}".format(run["id"], run["name"], cmndline))
                 try:
                     folder.exec_cmnd(cmndline, outdir, raise_error=True)
                 except RuntimeError:
@@ -474,9 +475,10 @@ def _create_qsub(run, wrkpath, cmnds):
 
     Parameters
     ----------
-    qsub: dict
+    run: dict
     wrkpath: str
         absolute path of working directory
+    cmnds: list
 
     Returns
     -------
@@ -606,7 +608,7 @@ def deploy_run_qsub(run, inputs, root_path, if_exists="abort", exec_errors=False
         else:
             # run
             cmndline = _QSUB_CMNDLINE
-            logger.exec("{0}-{1} running cmnd: {2}".format(run["id"], run["name"], cmndline))
+            getattr(logger, "exec")("{0}-{1} running cmnd: {2}".format(run["id"], run["name"], cmndline))
             try:
                 folder.exec_cmnd(cmndline, outdir, raise_error=True)
                 logger.info("successfully submitted: {}".format(cmndline))
