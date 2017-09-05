@@ -6,6 +6,7 @@ import logging
 import logging.handlers
 from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.deploy_runs import deploy_runs
+from atomic_hpc.utils import cmndline_prompt
 
 logger = logging.getLogger('atomic_hpc.run_config')
 
@@ -29,6 +30,11 @@ def run(fpath, basepath="", log_level='INFO', ignore_fail=False, if_exists="abor
     -------
 
     """
+    if log_level.upper() == "DEBUG_FULL":
+        log_level = "DEBUG"
+        filter_ext = False
+    else:
+        filter_ext = True
 
     root = logging.getLogger()
     root.handlers = []  # remove any existing handlers
@@ -39,7 +45,8 @@ def run(fpath, basepath="", log_level='INFO', ignore_fail=False, if_exists="abor
     formatter = logging.Formatter('%(levelname)8s: %(module)10s: %(message)s')
     stream_handler.setFormatter(formatter)
     stream_handler.propogate = False
-    stream_handler.addFilter(logging.Filter('atomic_hpc'))
+    if filter_ext:
+        stream_handler.addFilter(logging.Filter('atomic_hpc'))
     root.addHandler(stream_handler)
 
     # TODO add option for file logger
@@ -89,12 +96,21 @@ if __name__ == "__main__":
     parser.add_argument("-if", "--ignore-fail", action="store_true",
                         help='if a command line execution fails continue the run (default is to abort the run)')
     parser.add_argument("-log", "--log-level", type=str, default='info',
-                        choices=['debug', 'info', 'exec', 'warning', 'error'],
-                        help='the logging level to output to screen/file')
+                        choices=['debug_full', 'debug', 'info', 'exec', 'warning', 'error'],
+                        help='the logging level to output to screen/file '
+                             '(NB: debug_full allows logging from external packages)')
     parser.add_argument("--test-run", action="store_true",
                         help='do not run any executables (only create directories and create/copy files)')
 
     args = parser.parse_args()
     options = vars(args)
+
+    if options["if_exists"] == "remove":
+        if not cmndline_prompt("Are you sure you with to remove existing outputs?"):
+            sys.exit()
+    elif options["if_exists"] == "use":
+        if not cmndline_prompt("Are you sure you with to overwrite existing outputs?"):
+            sys.exit()
+
     filepath = options.pop('configpath')
     run(filepath, **options)

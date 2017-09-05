@@ -1,6 +1,13 @@
 import logging
 import os
 from fnmatch import fnmatch
+import sys
+from builtins import input
+
+try:
+    from distutils.util import strtobool
+except ImportError:
+    from distutils import strtobool
 
 
 def splitall(path):
@@ -21,7 +28,7 @@ def splitall(path):
         if parts[0] == path:  # sentinel for absolute paths
             allparts.insert(0, parts[0])
             break
-        elif parts[1] == path: # sentinel for relative paths
+        elif parts[1] == path:  # sentinel for relative paths
             allparts.insert(0, parts[1])
             break
         else:
@@ -80,7 +87,7 @@ def fnmatch_path(path, pattern, isafile=False):
     elif dblstars > 1:
         raise NotImplementedError("only allowed one ** per regex: {}".format(pattern))
     else:
-        if len(pathlist) < len(patternlist)-1:
+        if len(pathlist) < len(patternlist) - 1:
             return False
         # match from front upto **
         for comp, patt in zip(pathlist[:dblstars_index], patternlist[:dblstars_index]):
@@ -194,12 +201,11 @@ def add_loglevel(name, levelnum, methodname=None):
         methodname = name.lower()
 
     if hasattr(logging, name):
-       raise AttributeError('{} already defined in logging module'.format(name))
+        raise AttributeError('{} already defined in logging module'.format(name))
     if hasattr(logging, methodname):
-       raise AttributeError('{} already defined in logging module'.format(methodname))
+        raise AttributeError('{} already defined in logging module'.format(methodname))
     if hasattr(logging.getLoggerClass(), methodname):
-       raise AttributeError('{} already defined in logger class'.format(methodname))
-
+        raise AttributeError('{} already defined in logger class'.format(methodname))
 
     # This method was inspired by the answers to Stack Overflow post
     # http://stackoverflow.com/q/2183233/2988730, especially
@@ -207,6 +213,7 @@ def add_loglevel(name, levelnum, methodname=None):
     def logForLevel(self, message, *args, **kwargs):
         if self.isEnabledFor(levelnum):
             self._log(levelnum, message, args, **kwargs)
+
     def logToRoot(message, *args, **kwargs):
         if logging.root.isEnabledFor(levelnum):
             logging.root._log(levelnum, message, args, **kwargs)
@@ -215,3 +222,23 @@ def add_loglevel(name, levelnum, methodname=None):
     setattr(logging, name, levelnum)
     setattr(logging.getLoggerClass(), methodname, logForLevel)
     setattr(logging, methodname, logToRoot)
+
+
+def cmndline_prompt(query):
+    """ get a prompt from the user
+
+    Parameters
+    ----------
+    query: str
+
+    Returns
+    -------
+
+    """
+    val = input("{0} [y/n]: ".format(query))
+    try:
+        ret = strtobool(val)
+    except ValueError:
+        sys.stdout.write('Please answer with a y/n\n')
+        return cmndline_prompt(query)
+    return ret
