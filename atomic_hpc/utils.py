@@ -2,8 +2,11 @@ import logging
 import os
 from fnmatch import fnmatch
 import sys
-from builtins import input
 
+try:
+    from builtins import input
+except ImportError:
+    from builtin import input
 try:
     from distutils.util import strtobool
 except ImportError:
