@@ -429,7 +429,7 @@ class RemotePath(VirtualDir):
     @staticmethod
     def _log_output(pipe):
         for line in iter(pipe.decode("utf-8").strip().splitlines()):
-            logger.exec(line)
+            getattr(logger, "exec")(line)
 
 
     @staticmethod
