@@ -166,7 +166,11 @@ value1
 This is file 1
 ```
 
-NB: all relative paths are resolved relative to the execution directory, unless set with `run_config -b base/path/`.
+Note1: all relative paths are resolved relative to the execution directory, unless set with `run_config -b base/path/`.
+
+Note2: For the above example, if a script or cmndline has `@v{file1}` in it (rather than `@f{file1}`), 
+then this would be replaced with the file name (rather than its content), i.e. input.txt
+
 
 Outputs
 -------

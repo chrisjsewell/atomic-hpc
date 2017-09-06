@@ -114,6 +114,8 @@ def get_inputs(run, config_path):
                         raise ValueError("run {0}: files path does not exist: {1}".format(run["id"], fpath))
                     if not folder.isfile(fpath):
                         raise ValueError("run {0}: files path is not a file: {1}".format(run["id"], fpath))
+                    if fid not in variables:
+                        variables[fid] = folder.name(fpath)
                     fstat = folder.stat(fpath)
                     with folder.open(fpath) as f:
                         files[fid] = (folder.name(fpath), (f.read(), fstat))
@@ -136,7 +138,7 @@ def get_inputs(run, config_path):
                         script = f.read()
 
                     # insert variables
-                    var_error = "run {id}: variable name; {var_name} not available to replace in script; {spath}"
+                    var_error = "run {id}: no replacement found for @v{{{var_name}}} in script; {spath}"
                     for tag in re.findall(_REGEX_VAR, script):
                         var = tag[3:-1]
                         if var not in variables:
@@ -144,7 +146,7 @@ def get_inputs(run, config_path):
                         script = script.replace(tag, str(variables[var]))
 
                     # insert file contents
-                    file_error = "run {id}: file; {path_name} not available to replace in script; {spath}"
+                    file_error = "run {id}: no replacement found for @f{{{path_name}}} in script; {spath}"
                     for tag in re.findall(_REGEX_FILE, script):
                         var = tag[3:-1]
                         if var not in files:
@@ -305,7 +307,8 @@ def deploy_run_normal(run, inputs, root_path, if_exists="abort", exec_errors=Fal
         outpath = run["output"]["path"]
     if run["output"]["remote"] is None:
         logger.info("running locally: {0}: {1}".format(run["id"], run["name"]))
-        kwargs = dict(path=root_path.joinpath(outpath))
+        out = root_path.joinpath(outpath)
+        kwargs = dict(path=out)
     else:
         logger.info("running remotely: {0}: {1}".format(run["id"], run["name"]))
         remote = run["output"]["remote"].copy()
@@ -318,6 +321,8 @@ def deploy_run_normal(run, inputs, root_path, if_exists="abort", exec_errors=Fal
 
         # create output folder
         outdir = create_output_dir(folder, run, if_exists, files, scripts)
+        if not outdir:
+            return False
 
         if test_run:
             logger.info("test_run=True, so skipping command line execution")
@@ -596,6 +601,8 @@ def deploy_run_qsub(run, inputs, root_path, if_exists="abort", exec_errors=False
 
         # create output folder
         outdir = create_output_dir(folder, run, if_exists, files, scripts)
+        if not outdir:
+            return False
 
         # make qsub
         abspath = folder.getabs(outdir)

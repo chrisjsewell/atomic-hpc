@@ -55,7 +55,7 @@ class change_dir(object):
                 if not hasattr(path, "is_dir"):
                     raise IOError("path is not path_like: {}".format(path))
                 if not path.exists():
-                    path.mkdir()
+                    path.mkdir(parents=True)
                     #raise IOError("the path does not exist: {}".format(path))
                 if not path.is_dir():
                     raise IOError("path is not a directory: {}".format(path))

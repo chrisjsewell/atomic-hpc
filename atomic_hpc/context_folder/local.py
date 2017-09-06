@@ -34,6 +34,8 @@ class LocalPath(VirtualDir):
 
         """
         self._root = root
+        if not self._root.exists():
+            self._root.mkdir(parents=True)
 
     def exists(self, path):
         """ whether path exists
