@@ -245,3 +245,40 @@ def cmndline_prompt(query):
         sys.stdout.write('Please answer with a y/n\n')
         return cmndline_prompt(query)
     return ret
+
+
+def str2intlist(s, delim=","):
+    """ create a list of ints from a delimited string
+
+    Parameters
+    ----------
+    s: string
+    delim: string
+
+    Returns
+    -------
+    int_list: list of ints
+
+    Examples
+    --------
+    >>> str2intlist("1,2,3")
+    [1, 2, 3]
+    >>> str2intlist("1-3")
+    [1, 2, 3]
+    >>> str2intlist("2,3-4,6")
+    [2, 3, 4, 6]
+
+    >>> str2intlist("a")
+    Traceback (most recent call last):
+     ...
+    TypeError: not a valid list of ints: "a"
+
+    """
+    def get_int(n):
+        try:
+            return int(n)
+        except:
+            raise TypeError('not a valid list of ints: "{}"'.format(s))
+
+    return sum(((list(range(*[get_int(j) + k for k, j in enumerate(i.split('-'))]))
+                 if '-' in i else [get_int(i)]) for i in s.split(delim)), [])

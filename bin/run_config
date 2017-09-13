@@ -4,19 +4,21 @@ import sys
 import argparse
 import logging
 import logging.handlers
+from jsonschema import ValidationError
 from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.deploy_runs import deploy_runs
-from atomic_hpc.utils import cmndline_prompt
+from atomic_hpc.utils import cmndline_prompt, str2intlist
 
 logger = logging.getLogger('atomic_hpc.run_config')
 
 
-def run(fpath, basepath="", log_level='INFO', ignore_fail=False, if_exists="abort", test_run=False):
+def run(fpath, runs=None, basepath="", log_level='INFO', ignore_fail=False, if_exists="abort", test_run=False):
     """
 
     Parameters
     ----------
     fpath: str
+    runs: list of ints or None
     basepath: str
     log_level: str
     ignore_fail: bool
@@ -60,14 +62,22 @@ def run(fpath, basepath="", log_level='INFO', ignore_fail=False, if_exists="abor
     fpath = os.path.abspath(fpath)
     basepath = os.path.abspath(basepath)
 
-    runs = format_config_yaml(fpath)
+    try:
+        runs_to_deploy = format_config_yaml(fpath, errormsg_only=True)
+    except ValidationError as err:
+        logger.critical(err)
+        return
+
+    if runs is not None:
+        runs_to_deploy = [r for r in runs_to_deploy if r["id"] in runs]
+
     exec_errors = not ignore_fail
 
     try:
-        deploy_runs(runs, basepath, if_exists=if_exists, exec_errors=exec_errors, test_run=test_run)
+        deploy_runs(runs_to_deploy, basepath, if_exists=if_exists, exec_errors=exec_errors, test_run=test_run)
     except RuntimeError as err:
         logger.critical(err)
-
+        return
 
 class ErrorParser(argparse.ArgumentParser):
     """
@@ -77,6 +87,7 @@ class ErrorParser(argparse.ArgumentParser):
         sys.stderr.write('error: %s\n' % message)
         self.print_help()
         sys.exit(2)
+
 
 if __name__ == "__main__":
 
@@ -88,6 +99,8 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--basepath", type=str, metavar='str',
                         help='path to use when resolving relative paths in the config file',
                         default=os.getcwd())
+    parser.add_argument('-r', '--runs', type=str2intlist, default=None,
+                        help="subset of run ids, in delimited list, e.g. -r 1,5-6,7")
     parser.add_argument("-ie", "--if-exists", type=str, default='abort',
                         choices=['abort', 'remove', 'use'],
                         help="if a run's output directory already exists either; "

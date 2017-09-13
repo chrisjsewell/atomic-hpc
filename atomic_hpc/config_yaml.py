@@ -173,12 +173,14 @@ _global_defaults = {
 }
 
 
-def format_config_yaml(file_obj):
+def format_config_yaml(file_obj, errormsg_only=False):
     """read config, merge defaults into runs, for each run: drop local or qsub and check against schema
 
     Parameters
     ----------
     file_obj : str or file_like
+    errormsg_only: bool
+        only return the human readable message part of the jsonschema.ValidationError
 
     """
     logger.info("reading config: {}".format(file_obj))
@@ -198,7 +200,9 @@ def format_config_yaml(file_obj):
         try:
             validate(new_run, _run_schema)
         except ValidationError as err:
-            raise ValidationError("error in run #{0} config:\n{1}".format(i + 1, err))
+            if errormsg_only:
+                err = err.message
+            raise ValidationError("error in run #{0} config: {1}".format(i + 1, err))
 
         if new_run["input"] is not None:
             all_none = True

@@ -6,17 +6,19 @@ import logging
 import logging.handlers
 from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.deploy_runs import retrieve_outputs
-from atomic_hpc.utils import cmndline_prompt
+from atomic_hpc.utils import cmndline_prompt, str2intlist
+from jsonschema import ValidationError
 
 logger = logging.getLogger('atomic_hpc.retrieve_config')
 
 
-def run(fpath, outpath="", basepath="", log_level='INFO', if_exists="abort"):
+def run(fpath, runs=None, outpath="", basepath="", log_level='INFO', if_exists="abort"):
     """
 
     Parameters
     ----------
     fpath: str
+    runs: list of ints or None
     outpath: str
     basepath: str
     log_level: str
@@ -57,10 +59,16 @@ def run(fpath, outpath="", basepath="", log_level='INFO', if_exists="abort"):
     fpath = os.path.abspath(fpath)
     basepath = os.path.abspath(basepath)
 
-    runs = format_config_yaml(fpath)
+    try:
+        runs_to_deploy = format_config_yaml(fpath, errormsg_only=True)
+    except ValidationError as err:
+        logger.critical(err)
+        return
+    if runs is not None:
+        runs_to_deploy = [r for r in runs_to_deploy if r["id"] in runs]
 
     try:
-        retrieve_outputs(runs, outpath, basepath, if_exists=if_exists)
+        retrieve_outputs(runs_to_deploy, outpath, basepath, if_exists=if_exists)
     except RuntimeError as err:
         logger.critical(err)
 
@@ -86,6 +94,8 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--basepath", type=str, metavar='str',
                         help='path to use when resolving relative paths in the config file',
                         default=os.getcwd())
+    parser.add_argument('-r', '--runs', type=str2intlist, default=None,
+                        help="subset of run ids, in delimited list, e.g. -r 1,5-6,7")
     parser.add_argument("-ie", "--if-exists", type=str, default='abort',
                         choices=['abort', 'remove', 'use'],
                         help="if a run's output directory already exists either; "
