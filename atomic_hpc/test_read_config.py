@@ -2,7 +2,7 @@
 from jsonextended import edict, utils
 # from jsonschema import ValidationError
 
-from atomic_hpc.config_yaml import format_config_yaml
+from atomic_hpc.config_yaml import format_config_yaml, renumber_config_yaml
 
 example_file_minimal = """
 runs:
@@ -286,4 +286,40 @@ def test_format_maximal():
     # import json
     # print(json.dumps(output, indent=4))
     assert edict.diff(output, expected_output_maximal) == {}
+
+
+def test_renumber_config_yaml():
+    example_file = """
+    # a comment
+    runs:
+      - name: run1
+      - name: run2
+      - name: run3
+      - name: run4
+      - name: run5
+      - name: run6      
+    """
+    in_file_obj = utils.MockPath('config.yml', is_file=True,
+                              content=example_file)
+    out_file_obj = utils.MockPath('config.yml', is_file=True,
+                              content="")
+
+    renumber_config_yaml(in_file_obj, out_file_obj)
+    expected = """File("config.yml") Contents:
+    # a comment
+runs:
+- name: run1
+  id: 1
+- name: run2
+  id: 2
+- name: run3
+  id: 3
+- name: run4
+  id: 4
+- name: run5
+  id: 5
+- name: run6
+  id: 6"""
+    assert out_file_obj.to_string(file_content=True) == expected
+
 

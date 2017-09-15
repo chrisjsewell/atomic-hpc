@@ -225,3 +225,36 @@ def format_config_yaml(file_obj, errormsg_only=False):
         raise ValidationError("the run ids are not unique: {}".format(ids))
 
     return runs
+
+
+def renumber_config_yaml(in_file_obj, out_file_obj, start_num=1):
+    """ read the config yaml, then return one with the run ids numbered in numerical order
+
+    Parameters
+    ----------
+    in_file_obj: str or file_like
+    out_file_obj: str or file_like
+    start_num: int
+        number to start ids from
+
+    Returns
+    -------
+
+    """
+    logger.info("reading config: {}".format(in_file_obj))
+    if isinstance(in_file_obj, basestring):
+        in_file_obj = pathlib.Path(in_file_obj)
+    if isinstance(out_file_obj, basestring):
+        out_file_obj = pathlib.Path(out_file_obj)
+
+    ryaml = YAML()
+    config = ryaml.load(in_file_obj)
+    validate(config, _config_schema)
+    for i, run in enumerate(config["runs"]):
+        config["runs"][i]["id"] = i+start_num
+
+    logger.info("outputting renumbered config to: {}".format(out_file_obj))
+    with out_file_obj.open("w") as f:
+        ryaml.dump(config, f)
+
+
