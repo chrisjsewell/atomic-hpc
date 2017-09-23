@@ -194,14 +194,29 @@ class RemotePath(VirtualDir):
         -------
 
         """
+        logger.debug("yielding files for pattern: {}".format(pattern))
+        
         if pattern.startswith(".."):
             raise IOError("cannot go outside folder context")
 
         def walk_func(apath):
             return walk_path(apath, listdir=self._sftp.listdir, isfile=self.isfile, isfolder=self.isdir)
 
-        for path in glob_path("", pattern, walk_func):
-            yield path
+        # can be time consuming to walk through paths, so don't start from root if possible
+        # TODO this may be able to be written better (or moved to glob_path)
+        init_path = []
+        for pattern_piece in splitall(pattern):
+            if any(c in pattern_piece for c in ('*', '?', "[", "]")):
+                break
+            init_path.append(pattern_piece)
+        if init_path and init_path[0] == ".":
+            init_path = init_path[1:]
+        init_path = os.path.join(*init_path) if init_path else ""
+        if self.exists(init_path):
+            for path in glob_path(init_path, pattern, walk_func):
+                    yield path
+            
+        logger.debug("finished yielding files for pattern: {}".format(pattern))
 
     @renew_connection
     def rmtree(self, path):
@@ -332,8 +347,10 @@ class RemotePath(VirtualDir):
             targetchild = target.joinpath(os.path.basename(path))
         if self.isfile(path):
             targetchild.touch()
+            #logger.debug("started copying file")
             with targetchild.open("wb") as file_obj:
                 self._sftp.getfo(path, file_obj)
+            #logger.debug("finished copying file")
         else:
             targetchild.mkdir()
             for childpath in self.glob(os.path.join(path, "*")):

@@ -706,6 +706,8 @@ def retrieve_outputs(runs, local_path, root_path, if_exists="abort"):
             logger.info("copying {0} to {1}".format(outname, local_path))
             for pname in folder.glob(os.path.join(outname, "*")):
                 folder.copy_to(pname, local_path.joinpath(outname))
+                
+            logger.info("finished copying {0} to {1}".format(outname, local_path))
 
     if failed_runs:
         raise RuntimeError("The following runs did not complete: \n{}".format("\n".join(failed_runs)))

@@ -190,10 +190,14 @@ def format_config_yaml(file_obj, errormsg_only=False):
 
     ryaml = YAML()
     dct = ryaml.load(file_obj)
+    
+    logger.info("validating & formatting config: {}".format(file_obj))
+    
     validate(dct, _config_schema)
     runs = []
     defaults = edict.merge([_global_defaults, dct.get('defaults', {})], overwrite=True)
 
+    
     for i, run in enumerate(dct['runs']):
 
         new_run = edict.merge([defaults, run], overwrite=True)
@@ -250,7 +254,7 @@ def renumber_config_yaml(in_file_obj, out_file_obj, start_num=1):
     ryaml = YAML()
     config = ryaml.load(in_file_obj)
     validate(config, _config_schema)
-    for i, run in enumerate(config["runs"]):
+    for i, _ in enumerate(config["runs"]):
         config["runs"][i]["id"] = i+start_num
 
     logger.info("outputting renumbered config to: {}".format(out_file_obj))
