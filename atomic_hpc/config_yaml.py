@@ -192,12 +192,17 @@ def format_config_yaml(file_obj, errormsg_only=False):
     dct = ryaml.load(file_obj)
     
     logger.info("validating & formatting config: {}".format(file_obj))
-    
-    validate(dct, _config_schema)
+
+    try:
+        validate(dct, _config_schema)
+    except ValidationError as err:
+        if errormsg_only:
+            err = err.message
+        raise ValidationError("error in top-level config: {0}".format(err))
+
     runs = []
     defaults = edict.merge([_global_defaults, dct.get('defaults', {})], overwrite=True)
 
-    
     for i, run in enumerate(dct['runs']):
 
         new_run = edict.merge([defaults, run], overwrite=True)
@@ -210,7 +215,7 @@ def format_config_yaml(file_obj, errormsg_only=False):
 
         if new_run["input"] is not None:
             all_none = True
-            if new_run["input"]["remote"]["hostname"] is None:
+            if new_run["input"]["remote"] is not None and new_run["input"]["remote"]["hostname"] is None:
                 new_run["input"]["remote"] = None
             for field in ["remote", "path", "scripts", "files", "variables"]:
                 if new_run["input"][field] is not None:
