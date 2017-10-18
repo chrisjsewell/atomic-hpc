@@ -409,7 +409,7 @@ if [ "$start_in_temp" = true ] ; then
         echo "the TMPDIR variable does not exist"  1>&2
         exit 1
     fi
-    if [ -z "TMPDIR" ]; then
+    if [ -z "$TMPDIR" ]; then
         echo "the TMPDIR variable is empty"  1>&2
         exit 1
     fi
@@ -417,7 +417,26 @@ if [ "$start_in_temp" = true ] ; then
     cd $TMPDIR
     
     # copy required input files from $WORKDIR to $TMPDIR
-    cp -pR {wrkpath}/* $TMPDIR
+    # if running on multiple nodes, then the files need to be copied to each one
+    if [ ! -z ${{PBS_NODEFILE+x}} ]; then
+        echo '$PBS_NODEFILE' found: $PBS_NODEFILE
+
+        readarray -t PCLIST < $PBS_NODEFILE
+        # get unique items
+        IFS=$' '
+        PCLIST=($(printf "%s\n" "${{PCLIST[@]}}" | sort -u | tr '\n' ' '))
+        unset IFS
+        # echo "running on nodes: ${{PCLIST[*]}}"
+
+        for PC in "${{PCLIST[@]}}"; do
+            echo "copying input files to node $PC"
+            ssh $PC "if [ ! -d $TMPDIR ];then mkdir -p $TMPDIR;echo 'temporary directory on '$PC;fi"
+            ssh $PC cp -pR {wrkpath}/* $TMPDIR
+            # echo `ssh $PC ls $TMPDIR`
+        done
+    else
+        cp -pR {wrkpath}/* $TMPDIR
+    fi
 
 else
 
