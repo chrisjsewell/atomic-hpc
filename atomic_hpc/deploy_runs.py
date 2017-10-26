@@ -648,7 +648,7 @@ def deploy_run_qsub(run, inputs, root_path, if_exists="abort", exec_errors=False
 
 
 # TODO add tests for retrieve_outputs
-def retrieve_outputs(runs, local_path, root_path, if_exists="abort"):
+def retrieve_outputs(runs, local_path, root_path, if_exists="abort", path_regex="*"):
     """
 
     Parameters
@@ -661,6 +661,8 @@ def retrieve_outputs(runs, local_path, root_path, if_exists="abort"):
         the path of the config file
     if_exists: ["abort", "remove", "use"]
         either; raise an IOError if the output path already exists, remove the output path or use it without change
+    path_regex: str
+        regex to search for files
 
     Returns
     -------
@@ -723,7 +725,7 @@ def retrieve_outputs(runs, local_path, root_path, if_exists="abort"):
                 continue
 
             logger.info("copying {0} to {1}".format(outname, local_path))
-            for pname in folder.glob(os.path.join(outname, "*")):
+            for pname in folder.glob(os.path.join(outname, path_regex)):
                 folder.copy_to(pname, local_path.joinpath(outname))
                 
             logger.info("finished copying {0} to {1}".format(outname, local_path))
