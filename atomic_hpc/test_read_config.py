@@ -123,6 +123,7 @@ expected_output_maximal = [
             "files": {
                 "file1": "path/to/file1"
             },
+            "binaries": None,
             "variables": {
                 "var1": "overridevalue",
                 "var2": "value",
@@ -200,6 +201,7 @@ expected_output_maximal = [
             "files": {
                 "file1": "path/to/file1"
             },
+            "binaries": None,
             "variables": {
                 "var1": "value",
                 "var2": "overridevalue",
