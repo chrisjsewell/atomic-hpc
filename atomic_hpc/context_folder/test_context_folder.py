@@ -3,6 +3,7 @@ import shutil
 import pytest
 import inspect
 import logging
+logging.basicConfig(level=logging.DEBUG)
 
 import sys
 from jsonextended.utils import MockPath

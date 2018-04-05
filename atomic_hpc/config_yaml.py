@@ -91,6 +91,7 @@ _run_schema = {
                         "path": {"type": ["string", "null"]},
                         "scripts": {"type": ["array", "null"], "items": {"type": "string"}},
                         "files": {"type": ["object", "null"], "patternProperties": {'.+': {"type": "string"}}},
+                        "binaries": {"type": ["object", "null"], "patternProperties": {'.+': {"type": "string"}}},
                         "variables": {"type": ["object", "null"]},
                   }},
 
@@ -126,6 +127,7 @@ _global_defaults = {
         "path": None,
         "scripts": None,
         "files": None,
+        "binaries": None,
         "variables": None,
         "remote": {
             "hostname": None,

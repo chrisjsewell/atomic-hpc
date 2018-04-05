@@ -203,6 +203,8 @@ runs:
       - path/to/script2.in
     files:
       file1: path/to/file1
+    binaries:
+      file2: path/to/file2
     variables:
       var1: overridevalue
       var2: value

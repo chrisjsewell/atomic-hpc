@@ -8,6 +8,8 @@ import re
 
 # python 2/3 compatibility
 import time
+from fnmatch import fnmatch
+
 from ruamel.yaml import YAML
 
 try:
@@ -118,6 +120,19 @@ def get_inputs(run, config_path):
                         variables[fid] = folder.name(fpath)
                     fstat = folder.stat(fpath)
                     with folder.open(fpath) as f:
+                        files[fid] = (folder.name(fpath), (f.read(), fstat))
+
+            # TODO shouldn't be able to add binary to script
+            if run["input"]["binaries"] is not None:
+                for fid, fpath in run["input"]["binaries"].items():
+                    if not folder.exists(fpath):
+                        raise ValueError("run {0}: files path does not exist: {1}".format(run["id"], fpath))
+                    if not folder.isfile(fpath):
+                        raise ValueError("run {0}: files path is not a file: {1}".format(run["id"], fpath))
+                    if fid not in variables:
+                        variables[fid] = folder.name(fpath)
+                    fstat = folder.stat(fpath)
+                    with folder.open(fpath, mode="rb") as f:
                         files[fid] = (folder.name(fpath), (f.read(), fstat))
 
             if run["input"]["scripts"] is not None:
@@ -248,7 +263,7 @@ def create_output_dir(folder, run, if_exists, files, scripts):
     run_config_path = os.path.join(outdir, "config_{}.yaml".format(run["id"]))
     i = 1
     while folder.exists(run_config_path):
-        run_config_path = os.path.join(outdir, "config_{0}({1}).yaml".format(run["id"], i))
+        run_config_path = os.path.join(outdir, "config_{0}.{1}.yaml".format(run["id"], i))
         i += 1
     with folder.open(run_config_path, "w") as f:
         yaml = YAML()
@@ -464,6 +479,8 @@ if [ "$start_in_temp" = true ] ; then
 fi
 
 """
+# TODO if [ "$start_in_temp" = true ] then also remove/rename input files which were originally in $WORKDIR
+# could just also put {remove} & {rename} after cd {wrkpath}, but risk removing/renaming already renamed files?
 
 
 def _resolve_walltime(walltime):
@@ -524,7 +541,7 @@ def _create_qsub(run, wrkpath, cmnds):
     if qsub["memory_per_node"] is not None:
         additional_resources += ":mem={}".format(qsub["memory_per_node"])
     pbs_optional = ""
-    pbs_optional += "#PBS -q \n" + qsub["queue"] if qsub["queue"] is not None else ""
+    pbs_optional += "#PBS -q " + qsub["queue"] if qsub["queue"] is not None else "\n"
     # Sends email to the submitter when the job begins/ends/aborts
     if qsub.get("email", None) is not None:
         pbs_optional += "#PBS -M {}\n".format(qsub["email"])
@@ -648,7 +665,7 @@ def deploy_run_qsub(run, inputs, root_path, if_exists="abort", exec_errors=False
 
 
 # TODO add tests for retrieve_outputs
-def retrieve_outputs(runs, local_path, root_path, if_exists="abort", path_regex="*"):
+def retrieve_outputs(runs, local_path, root_path, if_exists="abort", path_regex="*", ignore_regex=None):
     """
 
     Parameters
@@ -726,7 +743,15 @@ def retrieve_outputs(runs, local_path, root_path, if_exists="abort", path_regex=
 
             logger.info("copying {0} to {1}".format(outname, local_path))
             for pname in folder.glob(os.path.join(outname, path_regex)):
-                folder.copy_to(pname, local_path.joinpath(outname))
+                ignore = False
+                if ignore_regex:
+                    pbasename = os.path.basename(pname)
+                    for rgx in ignore_regex:
+                        if fnmatch(pbasename, rgx):
+                            ignore = True
+                            break
+                if not ignore:
+                    folder.copy_to(pname, local_path.joinpath(outname))
                 
             logger.info("finished copying {0} to {1}".format(outname, local_path))
 

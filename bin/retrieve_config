@@ -12,7 +12,8 @@ from jsonschema import ValidationError
 logger = logging.getLogger('atomic_hpc.retrieve_config')
 
 
-def run(fpath, runs=None, outpath="", basepath="", log_level='INFO', if_exists="abort", path_regex="*"):
+def run(fpath, runs=None, outpath="", basepath="", log_level='INFO', if_exists="abort",
+        path_regex="*", ignore_regex=None):
     """
 
     Parameters
@@ -26,7 +27,8 @@ def run(fpath, runs=None, outpath="", basepath="", log_level='INFO', if_exists="
         either; raise an IOError if the output path already exists, remove the output path or use it without change
    path_regex: str
         regex to search for files
-
+   ignore_regex: None or list of str
+        file regexes to ignore (not copy)
     Returns
     -------
 
@@ -70,7 +72,8 @@ def run(fpath, runs=None, outpath="", basepath="", log_level='INFO', if_exists="
         runs_to_deploy = [r for r in runs_to_deploy if r["id"] in runs]
 
     try:
-        retrieve_outputs(runs_to_deploy, outpath, basepath, if_exists=if_exists, path_regex=path_regex)
+        retrieve_outputs(runs_to_deploy, outpath, basepath, if_exists=if_exists,
+                         path_regex=path_regex, ignore_regex=ignore_regex)
     except RuntimeError as err:
         logger.critical(err)
 
@@ -109,6 +112,8 @@ if __name__ == "__main__":
                              '(NB: debug_full allows logging from external packages)')
     parser.add_argument("-rx", "--path-regex", type=str, metavar='str',
                         help='file/folder regex to retrieve', default="*")
+    parser.add_argument("-ix", "--ignore-regex", type=str, metavar='str', nargs='*',
+                        help='file regexes to ignore')
     # parser.add_argument("--test-run", action="store_true",
     #                     help='do not run any executables (only create directories and create/copy files)')
 
@@ -116,10 +121,10 @@ if __name__ == "__main__":
     options = vars(args)
 
     if options["if_exists"] == "remove":
-        if not cmndline_prompt("Are you sure you with to remove existing outputs?"):
+        if not cmndline_prompt("Are you sure you wish to remove existing outputs?"):
             sys.exit()
     elif options["if_exists"] == "use":
-        if not cmndline_prompt("Are you sure you with to overwrite existing outputs?"):
+        if not cmndline_prompt("Are you sure you wish to overwrite existing outputs?"):
             sys.exit()
 
     filepath = options.pop('configpath')

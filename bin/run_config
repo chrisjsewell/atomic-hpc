@@ -119,10 +119,10 @@ if __name__ == "__main__":
     options = vars(args)
 
     if options["if_exists"] == "remove":
-        if not cmndline_prompt("Are you sure you with to remove existing outputs?"):
+        if not cmndline_prompt("Are you sure you wish to remove existing outputs?"):
             sys.exit()
     elif options["if_exists"] == "use":
-        if not cmndline_prompt("Are you sure you with to overwrite existing outputs?"):
+        if not cmndline_prompt("Are you sure you wish to overwrite existing outputs?"):
             sys.exit()
 
     filepath = options.pop('configpath')
