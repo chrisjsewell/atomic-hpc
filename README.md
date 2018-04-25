@@ -85,6 +85,7 @@ runs:
       path: /work/cjs14/yaml_test
 
     process:
+      qsub:
         cores_per_node: 16  
         nnodes: 1     
         walltime: 1:00:00
@@ -171,6 +172,16 @@ Note1: all relative paths are resolved relative to the execution directory, unle
 Note2: For the above example, if a script or cmndline has `@v{file1}` in it (rather than `@f{file1}`), 
 then this would be replaced with the file name (rather than its content), i.e. input.txt
 
+Note3: Within `qsub: run:`, the keyword `@{wrkpath}` will be replaced with the working folder path.
+This is handy, for instance, to maintain a dynamic log file in the work path, while the program is running in a temporary folder, e,g,
+
+```yaml
+process:
+    qsub:
+      start_in_temp: true
+      run:
+        - my_program > @{wrkpath}/output.log
+``` 
 
 Outputs
 -------

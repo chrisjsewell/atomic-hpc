@@ -555,7 +555,7 @@ def _create_qsub(run, wrkpath, cmnds):
     start_in_temp = "true" if qsub["start_in_temp"] else "false"
 
     # exec runs
-    exec_run = "\n".join(cmnds)
+    exec_run = "\n".join(cmnds).replace("@{wrkpath}", wrkpath)
 
     # remove
     rmlist = []
