@@ -1,9 +1,10 @@
 atomic-hpc
 ==========
 
-[![travis](https://travis-ci.org/chrisjsewell/jsonextended.svg?branch=master)](https://travis-ci.org/chrisjsewell/atomic-hpc)
-[![coveralls](https://coveralls.io/repos/github/chrisjsewell/jsonextended/badge.svg?branch=master)](https://coveralls.io/github/chrisjsewell/atomic-hpc?branch=master)
+[![travis](https://travis-ci.org/chrisjsewell/atomic-hpc.svg?branch=master)](https://travis-ci.org/chrisjsewell/atomic-hpc)
+[![coveralls](https://coveralls.io/repos/github/chrisjsewell/atomic-hpc/badge.svg?branch=master)](https://coveralls.io/github/chrisjsewell/atomic-hpc?branch=master)
 [![codacy](https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9)](https://www.codacy.com/app/chrisj_sewell/atomic-hpc?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=chrisjsewell/atomic-hpc&amp;utm_campaign=Badge_Grade)
+[![PyPI](https://img.shields.io/pypi/v/atomic-hpc.svg)](https://pypi.python.org/pypi/atomic-hpc/)
 
 **Project**: <https://github.com/chrisjsewell/atomic-hpc>
 

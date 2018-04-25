@@ -100,6 +100,7 @@ systems.
           path: /work/cjs14/yaml_test
 
         process:
+          qsub:
             cores_per_node: 16  
             nnodes: 1     
             walltime: 1:00:00
@@ -367,9 +368,9 @@ If using special characters in strings (like \*) be sure to wrap them in
 "" or use the > or \| yaml components (see
 https://en.wikipedia.org/wiki/YAML#Basic\_components)
 
-.. |travis| image:: https://travis-ci.org/chrisjsewell/jsonextended.svg?branch=master
+.. |travis| image:: https://travis-ci.org/chrisjsewell/atomic-hpc.svg?branch=master
    :target: https://travis-ci.org/chrisjsewell/atomic-hpc
-.. |coveralls| image:: https://coveralls.io/repos/github/chrisjsewell/jsonextended/badge.svg?branch=master
+.. |coveralls| image:: https://coveralls.io/repos/github/chrisjsewell/atomic-hpc/badge.svg?branch=master
    :target: https://coveralls.io/github/chrisjsewell/atomic-hpc?branch=master
 .. |codacy| image:: https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9
    :target: https://www.codacy.com/app/chrisj_sewell/atomic-hpc?utm_source=github.com&utm_medium=referral&utm_content=chrisjsewell/atomic-hpc&utm_campaign=Badge_Grade
