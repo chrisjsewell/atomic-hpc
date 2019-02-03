@@ -16,7 +16,8 @@ except ImportError:
 from jsonextended.utils import MockPath
 from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.mockssh import mockserver
-from atomic_hpc.deploy_runs import (get_inputs, deploy_runs, _replace_in_cmnd, _create_qsub,
+from atomic_hpc.deploy_runs import (get_inputs, deploy_runs, _replace_in_cmnd,
+                                    _create_qsub,
                                     deploy_run_normal, deploy_run_qsub)
 
 logging.basicConfig(level="INFO")
@@ -89,7 +90,7 @@ def local_pathlib():
     inpath = os.path.join(test_folder, "input")
     os.mkdir(inpath)
     with open(os.path.join(inpath, 'script.in'), 'w') as f:
-            f.write('test @v{var1} @f{frag1}')
+        f.write('test @v{var1} @f{frag1}')
     with open(os.path.join(inpath, 'frag.in'), 'w') as f:
         f.write('replace frag')
     with open(os.path.join(inpath, 'other.in'), 'w') as f:
@@ -100,14 +101,21 @@ def local_pathlib():
 
 @pytest.fixture("function")
 def local_mock():
-    config_file = MockPath('config.yml', is_file=True, content=example_run.format(host="null", port=1))
-    test_folder = MockPath("test_tmp",
-                           structure=[config_file,
-                                      {"input": [
-                                          MockPath('script.in', is_file=True, content='test @v{var1} @f{frag1}'),
-                                          MockPath('frag.in', is_file=True, content='replace frag'),
-                                          MockPath('other.in', is_file=True, content='another file'),
-                                      ]}])
+    config_file = MockPath('config.yml', is_file=True,
+                           content=example_run.format(host="null", port=1))
+    test_folder = MockPath(
+        "test_tmp",
+        structure=[config_file,
+                   {"input": [
+                       MockPath(
+                           'script.in', is_file=True,
+                           content='test @v{var1} @f{frag1}'),
+                       MockPath('frag.in', is_file=True,
+                                content='replace frag'),
+                       MockPath(
+                           'other.in', is_file=True,
+                           content='another file'),
+                   ]}])
 
     yield format_config_yaml(config_file), test_folder
 
@@ -136,10 +144,11 @@ def remote():
         yield format_config_yaml(configpath), test_folder
 
 
-# a better way to do this is in the works: https://docs.pytest.org/en/latest/proposals/parametrize_with_fixtures.html
+# a better way to do this is in the works:
+# https://docs.pytest.org/en/latest/proposals/parametrize_with_fixtures.html
 @pytest.fixture(params=['local_pathlib', 'local_mock', 'remote'])
 def context(request):
-    return request.getfuncargvalue(request.param)
+    return request.getfixturevalue(request.param)
 
 
 def test_get_inputs(context):
@@ -147,9 +156,11 @@ def test_get_inputs(context):
     inputs = get_inputs(runs[0], path)
     assert sorted(list(inputs["files"].keys())) == ['frag.in', 'other.in']
     assert list(inputs["scripts"].keys()) == ["script.in"]
-    assert inputs["cmnds"] == ["echo test_echo > output.txt", "cat script.in > output2.txt",
-                               "mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt",
-                               "mkdir deletefolder; echo c > deletefolder/some.text"]
+    assert inputs["cmnds"] == [
+        "echo test_echo > output.txt",
+        "cat script.in > output2.txt",
+        "mkdir subfolder; echo a > subfolder/to_delete.txt; echo b > subfolder/dont_delete.txt",
+        "mkdir deletefolder; echo c > deletefolder/some.text"]
 
 
 def test_get_inputs_missing_variable_in_script(context):
@@ -177,7 +188,9 @@ def test_get_inputs_missing_file(context):
 
 
 def test_replace_in_cmnd():
-    cmnd = _replace_in_cmnd("mpirun -np @v{nprocs} script.in -a @v{other} > file.out", {"nprocs": 2, "other": "val"}, 1)
+    cmnd = _replace_in_cmnd(
+        "mpirun -np @v{nprocs} script.in -a @v{other} > file.out",
+        {"nprocs": 2, "other": "val"}, 1)
     assert cmnd == "mpirun -np 2 script.in -a val > file.out"
 
     with pytest.raises(KeyError):
@@ -190,8 +203,10 @@ def test_run_deploy_normal(context):
     deploy_run_normal(runs[0], inputs, path)
 
     if not hasattr(path, "to_string"):
-        assert os.path.exists(os.path.join(str(path), 'output/1_run_test_name/output.txt'))
-        assert os.path.exists(os.path.join(str(path), 'output/1_run_test_name/output2.other'))
+        assert os.path.exists(os.path.join(
+            str(path), 'output/1_run_test_name/output.txt'))
+        assert os.path.exists(os.path.join(
+            str(path), 'output/1_run_test_name/output2.other'))
     else:
         expected = """Folder("test_tmp")
   File("config.yml")
@@ -329,7 +344,7 @@ if [ "$start_in_temp" = true ] ; then
 fi
 
 """
-    #print(out)
+    # print(out)
     assert out == expected
 
 
@@ -359,7 +374,8 @@ def test_run_deploy_qsub_pass_local(local_pathlib):
     try:
         with mock.patch("atomic_hpc.deploy_runs._QSUB_CMNDLINE",
                         "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath))):
-            assert deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == True
+            assert deploy_run_qsub(
+                runs[0], inputs, path, exec_errors=True) == True
     finally:
         shutil.rmtree(temppath)
 
@@ -374,9 +390,11 @@ def test_run_deploy_qsub_pass_local(local_pathlib):
                 'output/1_run_test_name/output2.other', 'output/1_run_test_name/run.qsub',
                 'output/1_run_test_name/script.in', 'output/1_run_test_name/subfolder',
                 'output/1_run_test_name/subfolder/dont_delete.txt']
-    assert sorted([str(p.relative_to(path)) for p in outpath.glob("**/*")]) == sorted(expected)
+    assert sorted([str(p.relative_to(path))
+                   for p in outpath.glob("**/*")]) == sorted(expected)
 
-    outfile = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name/output2.other'))
+    outfile = pathlib.Path(os.path.join(
+        str(path), 'output/1_run_test_name/output2.other'))
     with outfile.open() as f:
         assert "test value replace frag" == f.read()
 
@@ -398,7 +416,8 @@ def test_run_deploy_qsub_pass_remote(remote):
     try:
         with mock.patch("atomic_hpc.deploy_runs._QSUB_CMNDLINE",
                         "TMPDIR={0}; chmod +x run.qsub; ./run.qsub".format(str(temppath))):
-            assert deploy_run_qsub(runs[0], inputs, path, exec_errors=True) == True
+            assert deploy_run_qsub(
+                runs[0], inputs, path, exec_errors=True) == True
     finally:
         shutil.rmtree(temppath)
 
@@ -413,9 +432,10 @@ def test_run_deploy_qsub_pass_remote(remote):
                 'output/1_run_test_name/output2.other', 'output/1_run_test_name/run.qsub',
                 'output/1_run_test_name/script.in', 'output/1_run_test_name/subfolder',
                 'output/1_run_test_name/subfolder/dont_delete.txt']
-    assert sorted([str(p.relative_to(path)) for p in outpath.glob("**/*")]) == sorted(expected)
+    assert sorted([str(p.relative_to(path))
+                   for p in outpath.glob("**/*")]) == sorted(expected)
 
-    outfile = pathlib.Path(os.path.join(str(path), 'output/1_run_test_name/output2.other'))
+    outfile = pathlib.Path(os.path.join(
+        str(path), 'output/1_run_test_name/output2.other'))
     with outfile.open() as f:
         assert "test value replace frag" == f.read()
-

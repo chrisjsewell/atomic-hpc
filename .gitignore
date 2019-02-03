@@ -103,3 +103,4 @@ ENV/
 # test folders
 test_tmp/
 test_external/
+.pytest_cache/

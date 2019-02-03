@@ -1,24 +1,28 @@
+import sys
 import os
 import shutil
 import pytest
 import inspect
 import logging
-logging.basicConfig(level=logging.DEBUG)
 
-import sys
-from jsonextended.utils import MockPath
-from atomic_hpc.context_folder import change_dir, LocalPath, RemotePath
 from atomic_hpc.mockssh import mockserver
+from atomic_hpc.context_folder import change_dir, LocalPath, RemotePath
+from jsonextended.utils import MockPath
+
 # python 3 to 2 compatibility
 try:
     import pathlib
 except ImportError:
     import pathlib2 as pathlib
 
+logging.basicConfig(level=logging.DEBUG)
+
 
 def test_consistent():
-    local = [name for name, val in inspect.getmembers(LocalPath, predicate=inspect.isfunction) if not name.startswith("_")]
-    remote = [name for name, val in inspect.getmembers(RemotePath, predicate=inspect.isfunction) if not name.startswith("_")]
+    local = [name for name, val in inspect.getmembers(
+        LocalPath, predicate=inspect.isfunction) if not name.startswith("_")]
+    remote = [name for name, val in inspect.getmembers(
+        RemotePath, predicate=inspect.isfunction) if not name.startswith("_")]
     assert sorted(local) == sorted(remote)
 
 
@@ -80,14 +84,16 @@ def remote():
 
     with mockserver.Server({"user": {"password": "password"}}, test_folder) as server:
         with change_dir(".", remote=True, hostname=server.host,
-                        port=server.port, username="user", password="password") as testdir:
+                        port=server.port, username="user",
+                        password="password") as testdir:
             yield testdir, test_external
 
 
-# a better way to do this is in the works: https://docs.pytest.org/en/latest/proposals/parametrize_with_fixtures.html
+# a better way to do this is in the works:
+# https://docs.pytest.org/en/latest/proposals/parametrize_with_fixtures.html
 @pytest.fixture(params=['local_pathlib', 'local_mockpath', 'remote'])
 def context(request):
-    return request.getfuncargvalue(request.param)
+    return request.getfixturevalue(request.param)
 
 
 def test_context_methods1(context):
@@ -97,11 +103,14 @@ def test_context_methods1(context):
     assert testdir.isfile('file.txt')
     testdir.makedirs('subdir1/subsubdir1')
 
-    assert sorted([p for p in testdir.glob('*')]) == sorted(['file.txt', 'subdir1'])
-    assert sorted([p for p in testdir.glob('subdir1/*')]) == sorted(['subdir1/subsubdir1'])
-    assert sorted([p for p in testdir.glob('**')]) == sorted(['subdir1', 'subdir1/subsubdir1'])
-    assert sorted([p for p in testdir.glob('**/*')]) == sorted(['file.txt', 'subdir1',
-                                                                'subdir1/subsubdir1'])
+    assert sorted([p for p in testdir.glob('*')]
+                  ) == sorted(['file.txt', 'subdir1'])
+    assert sorted([p for p in testdir.glob('subdir1/*')]
+                  ) == sorted(['subdir1/subsubdir1'])
+    assert sorted([p for p in testdir.glob('**')]
+                  ) == sorted(['subdir1', 'subdir1/subsubdir1'])
+    assert sorted([p for p in testdir.glob('**/*')]) == sorted(
+        ['file.txt', 'subdir1', 'subdir1/subsubdir1'])
     assert testdir.exists('subdir1/subsubdir1')
     assert testdir.isdir('subdir1/subsubdir1')
 
@@ -117,10 +126,14 @@ def test_context_methods2(context):
     testdir.remove('file2.txt')
     assert [p for p in testdir.glob('**/*')] == []
     testdir.copy_from(test_external, '.')
-    assert sorted([p for p in testdir.glob('**/*')]) == sorted(['test_external', 'test_external/file.txt'])
+    assert sorted([p for p in testdir.glob('**/*')]
+                  ) == sorted(['test_external', 'test_external/file.txt'])
     testdir.copy_to('.', test_external)
-    expected = sorted(['test_tmp', 'file.txt', 'test_tmp/test_external', 'test_tmp/test_external/file.txt'])
-    assert sorted([str(p.relative_to(test_external)) for p in test_external.glob('**/*')]) == expected
+    expected = sorted(['test_tmp', 'file.txt',
+                       'test_tmp/test_external',
+                       'test_tmp/test_external/file.txt'])
+    assert sorted([str(p.relative_to(test_external))
+                   for p in test_external.glob('**/*')]) == expected
     testdir.exec_cmnd("echo test123 >> new.txt", "test_external")
     assert testdir.exists("test_external/new.txt")
 
@@ -128,22 +141,26 @@ def test_context_methods2(context):
         assert f.read().strip() == "test123"
 
     testdir.copy("test_external/new.txt", ".")
-    expected = sorted(['new.txt', 'test_external', 'test_external/file.txt', 'test_external/new.txt'])
+    expected = sorted(['new.txt', 'test_external',
+                       'test_external/file.txt', 'test_external/new.txt'])
     assert sorted(list(testdir.glob('**/*'))) == expected
 
     testdir.makedirs("other")
     testdir.copy("test_external", "other")
-    expected = sorted(['new.txt', 'test_external', 'test_external/file.txt', 'test_external/new.txt',
-                       'other', 'other/test_external', 'other/test_external/file.txt', 'other/test_external/new.txt'])
+    expected = sorted(['new.txt', 'test_external',
+                       'test_external/file.txt', 'test_external/new.txt',
+                       'other', 'other/test_external',
+                       'other/test_external/file.txt',
+                       'other/test_external/new.txt'])
     assert sorted(list(testdir.glob('**/*'))) == expected
 
-  #       expected_output = """Folder("dir1")
-  # Folder("dir2")
-  #   File("file.txt") Contents:
-  #    file content
-  # File("new.txt") Contents:
-  #  hi"""
-  #       assert dir1.to_string(file_content=True) == expected_output
+#       expected_output = """Folder("dir1")
+# Folder("dir2")
+#   File("file.txt") Contents:
+#    file content
+# File("new.txt") Contents:
+#  hi"""
+#       assert dir1.to_string(file_content=True) == expected_output
 
 
 def test_exec_fail(context):
@@ -156,7 +173,8 @@ def test_exec_fail(context):
 
 def test_exec_longer_cmnd(context):
     testdir, _ = context
-    # TODO timeout not working with local, maybe use something like this: https://stackoverflow.com/a/4825933/5033292
+    # TODO timeout not working with local, maybe use something like 
+    # this: https://stackoverflow.com/a/4825933/5033292
     # with pytest.raises(Exception):
     #     testdir.exec_cmnd("sleep 6", timeout=1)
     testdir.exec_cmnd("sleep 5")
@@ -170,8 +188,7 @@ def test_exec_cmnd_with_stderr(context):
 
 def test_exec_cmnd_multiline_output(context):
     testdir, _ = context
-    logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO, stream=sys.stdout)
-    assert testdir.exec_cmnd('bash -c \'for ((i = 0 ; i < 4 ; i++ )); do echo "abc" >&1; echo "efg" >&2; sleep 1; done\'')
-
-
-
+    logging.basicConfig(format='%(levelname)s:%(message)s',
+                        level=logging.INFO, stream=sys.stdout)
+    assert testdir.exec_cmnd(
+        'bash -c \'for ((i = 0 ; i < 4 ; i++ )); do echo "abc" >&1; echo "efg" >&2; sleep 1; done\'')
