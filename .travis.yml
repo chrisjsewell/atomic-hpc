@@ -35,7 +35,7 @@ deploy:
 #      tags: false
 #      condition: $TRAVIS_PYTHON_VERSION = "3.6"
   - provider: pypi
-    distributions: bdist_wheel
+    distributions: "sdist bdist_wheel"
     user: cjsewell
     password:
       secure: W6i6EWcKKdacZyw4/ctjMRESTxwHt90ZDrUNXu7GfTwy9cA1Z/nPRJAuVFedwNzwI7Dow5v4KKbD028ji4QLhcTKDixg/2rG4NNZkqqeaseQk5ErK9zZZGK1BfbO4Df80wE5UZTYJ12IvOWFbWXDwxNlyisjnS7OAE2gFhsidSaZ0ydhyZOrNNMpea+362RyUiIPHmXm6XOCS7aBcHxE3ZKb64+IJI4MBFExhtpsaUgP82wNEA+Gxaq6jshmTGfSG1x1FNMkNdZgQnBCAP7CvnEt8t5KiNZmSJ0z/Hx3D7Oa+0CVy3pIq1Ouf2UJbtBGwhJrhY7AaI1NkSQHU1d0QZC9pfXl0E83N/vTUYjoPDSJJDcE6bE7Y5z64BY5oaRnhHO8eWv8RaJtsQ7Ibr+S80y+G8yuBhtP4uQ4wZtDAPQcu3DUUUBom3wPEqcWhyXebgGiPYmB1+Aw+CAsbSwnJygDZ8ANRgEkfhU6g7E5UuMSyk3YRlT7zO0qhbf6VfRt+8G5nIxyX1rnTiTcr8O1jd84fE9G78sa/7qv5jIZlpZXxSgjG5OXex34zAxY3zm5ZkAbKOL3DvlYtk3pFmZp1d8a9o90stL4E0MpRXMRqgv5CnPSmtajN0gcqg+mQlPJiix/8D7Lu1RZMsvf60dAU03xuOKO8N67l/6E4iZAMi0=
