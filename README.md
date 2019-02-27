@@ -3,8 +3,9 @@ atomic-hpc
 
 [![travis](https://travis-ci.org/chrisjsewell/atomic-hpc.svg?branch=master)](https://travis-ci.org/chrisjsewell/atomic-hpc)
 [![coveralls](https://coveralls.io/repos/github/chrisjsewell/atomic-hpc/badge.svg?branch=master)](https://coveralls.io/github/chrisjsewell/atomic-hpc?branch=master)
-[![codacy](https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9)](https://www.codacy.com/app/chrisj_sewell/atomic-hpc?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=chrisjsewell/atomic-hpc&amp;utm_campaign=Badge_Grade)
 [![PyPI](https://img.shields.io/pypi/v/atomic-hpc.svg)](https://pypi.python.org/pypi/atomic-hpc/)
+
+<!-- [![codacy](https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9)](https://www.codacy.com/app/chrisj_sewell/atomic-hpc?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=chrisjsewell/atomic-hpc&amp;utm_campaign=Badge_Grade) -->
 
 **Project**: <https://github.com/chrisjsewell/atomic-hpc>
 
@@ -33,30 +34,31 @@ Minimal Example
 1. Write a yaml configuration file; each run must have a name and a unique id, 
 then attributes can be set in the (global) `defaults` section or per run (run attributes will overwrite defaults):
 
-    **config.yaml**:
-    ```yaml
-    defaults:
-        environment: unix
-    
-        process:
-          unix:
-            run:
-              - echo "hallo world" > hallo.txt
-        
-        output:
-          path: output
-    runs:
-      - id: 1
-        name: test_local
-      - id: 2
-        name: test_other
-    
-    ```
+**config.yaml**:
+
+```yaml
+defaults:
+    environment: unix
+
+    process:
+      unix:
+        run:
+          - echo "hallo world" > hallo.txt
+
+    output:
+      path: output
+runs:
+  - id: 1
+    name: test_local
+  - id: 2
+    name: test_other
+
+```
 
 2. Submit it with the command line app (use -h to see all options):
 
         >> run_config config.yaml
-    
+
 3. The results will be available in the output path, with one folder per run:
 
         >> ls -R output
@@ -64,7 +66,7 @@ then attributes can be set in the (global) `defaults` section or per run (run at
         config_1.yaml     hallo.txt
         output/2_test_other:
         config_2.yaml     hallo.txt
-    
+
 
 Minimal Example (Remote and PBS)
 --------------------------------
@@ -73,6 +75,7 @@ Jobs can be submitted to remote hosts and, optionally,
 [PBS](https://en.wikipedia.org/wiki/Portable_Batch_System) type systems.
 
 **config_remote.yaml**
+
 ```yaml
 runs:
   - id: 1
@@ -119,6 +122,7 @@ This is file 1
 ```
 
  **config.yaml**:
+
 ```yaml
 defaults:
     description: quantum-espresso run
@@ -135,7 +139,7 @@ defaults:
             file1: path/to/input.txt
         scripts:
         - path/to/script1.in
-    
+
     process:
         unix:
             run:
@@ -156,7 +160,8 @@ runs:
 ```
 
 **Run**:
-```
+
+```console
 >> run_config config.yaml
 >> ls -R output
 output/1_run1:
@@ -182,7 +187,7 @@ process:
       start_in_temp: true
       run:
         - my_program > @{wrkpath}/output.log
-``` 
+```
 
 Outputs
 -------
@@ -321,7 +326,7 @@ If you open 'id_rsa.pub' it should contain one line of, similar to:
     ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAwRDgM+iQg7OaX/CFq1sZ9jl206nYIhW9SMBqsOIRvGM68/6o6uxZo/D4IlmQI9sAcU5FVNEt9dvDanRqUlC7ZtcOGOCqZsj1HTGD3LcOiPNHYPvi1auEwrXv1hDh4pmJwdgZCRnpewNl+I6RNBiZUyzLzp0/2eIyf4TqG1rpHRNjmtS9turANIv1GK1ONIO7RfVmmIk/jjTQJU9iJqje9ZSXTSm7rUG4W8q+mWcnACReVChc+9mVZDOb3gUZV1Vs8e7G36nj6XfHw51y1B1lrlnPQJ7U3JdqPz6AG3Je39cR1vnfALxBSpF5QbTHTJOX5ke+sNKo//kDyWWlfzz3rQ== heiko@clove.ch.ic.ac.uk
 
 Now log in to the HPC and open (or create) the file '~/.ssh/authorized_keys'. 
-In a new line at the end of this file, you should add a comment (starting with #) about where that keypair comes from 
+In a new line at the end of this file, you should add a comment (starting with #) about where that keypair comes from
 and then in a second line you should copy and paste the complete contents of your 'id_rsa.pub' file.
 
     #MAC in the office

@@ -48,7 +48,8 @@ class change_dir(object):
                     os.makedirs(path)
                     #raise IOError("the path does not exist: {}".format(path))
                 if not os.path.isdir(path):
-                    raise IOError("the path is not a directory: {}".format(path))
+                    raise IOError(
+                        "the path is not a directory: {}".format(path))
                 abspath = os.path.expanduser(os.path.abspath(path))
                 self._path = pathlib.Path(abspath)
             else:
@@ -73,11 +74,12 @@ class change_dir(object):
             try:
                 self._ssh.connect(self._hostname, **self._kwargs)
                 _ = self._ssh.open_sftp()
-                #sftp.chdir(self._path)
+                # sftp.chdir(self._path)
                 self._ssh.close()
             except Exception as err:
-                raise RuntimeError("failed connecting to {0} with args: {1}\n{2}".format(
-                    self._hostname, self._kwargs, err))
+                raise RuntimeError(
+                    "failed connecting to {0} with args: {1}\n{2}".format(
+                        self._hostname, self._kwargs, err))
 
     def __enter__(self):
 
@@ -86,7 +88,8 @@ class change_dir(object):
             return LocalPath(self._path)
         else:
             logger.debug("entering remote path")
-            return RemotePath(self._ssh, self._hostname, self._path, **self._kwargs)
+            return RemotePath(
+                self._ssh, self._hostname, self._path, **self._kwargs)
 
     def __exit__(self, etype, value, traceback):
         logger.debug("exiting path")
