@@ -12,13 +12,15 @@ with open('requirements.txt') as f:
 with open('test_requirements.txt') as f:
     test_requirements = f.read().splitlines()
 
-with io.open('README.rst') as readme:
+with io.open('README.md') as readme:
     setup(
         name='atomic-hpc',
         version=import_module('atomic_hpc').__version__,
-        description='A package for running multiple executable scripts on both local and remote hosts, '
-                    'configured using a modern standard YAML',
+        description=(
+            'A package for running multiple executable scripts on both '
+            'local and remote hosts, configured using a YAML file'),
         long_description=readme.read(),
+        long_description_content_type='text/markdown',
         install_requires=requirements,
         tests_require=test_requirements,
         license='MIT',
