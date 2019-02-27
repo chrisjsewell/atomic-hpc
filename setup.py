@@ -5,7 +5,7 @@
 
 import io
 from importlib import import_module
-from setuptools import setup  # , find_packages
+from setuptools import setup, find_packages
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
@@ -50,6 +50,7 @@ with io.open('README.md') as readme:
         ],
         keywords='yaml, hpc, configuration, ssh, sftp',
         zip_safe=True,
+        packages=find_packages(),
         package_data={
             "mockssh": [
                 "sample-user-key",
