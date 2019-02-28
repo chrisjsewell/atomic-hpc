@@ -4,6 +4,7 @@ import sys
 import argparse
 import logging
 import logging.handlers
+from atomic_hpc import __version__
 from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.deploy_runs import retrieve_outputs
 from atomic_hpc.utils import cmndline_prompt, str2intlist
@@ -12,8 +13,8 @@ from jsonschema import ValidationError
 logger = logging.getLogger('atomic_hpc.retrieve_config')
 
 
-def run(fpath, runs=None, outpath="", basepath="", log_level='INFO', if_exists="abort",
-        path_regex="*", ignore_regex=None):
+def run(fpath, runs=None, outpath="", basepath="", log_level='INFO',
+        if_exists="abort", path_regex="*", ignore_regex=None):
     """
 
     Parameters
@@ -24,11 +25,13 @@ def run(fpath, runs=None, outpath="", basepath="", log_level='INFO', if_exists="
     basepath: str
     log_level: str
     if_exists: ["abort", "remove", "use"]
-        either; raise an IOError if the output path already exists, remove the output path or use it without change
+        either; raise an IOError if the output path already exists,
+        remove the output path or use it without change
    path_regex: str
         regex to search for files
    ignore_regex: None or list of str
         file regexes to ignore (not copy)
+
     Returns
     -------
 
@@ -53,7 +56,8 @@ def run(fpath, runs=None, outpath="", basepath="", log_level='INFO', if_exists="
     root.addHandler(stream_handler)
 
     # TODO add option for file logger
-    # file_handler = logging.FileHandler(os.path.join(outdir, ipynb_name + '.config.log'), 'w')
+    # file_handler = logging.FileHandler(
+    # os.path.join(outdir, ipynb_name + '.config.log'), 'w')
     # file_handler.setLevel(getattr(logging, log_level.upper()))
     # file_handler.setFormatter(formatter)
     # file_handler.propogate = False
@@ -72,8 +76,9 @@ def run(fpath, runs=None, outpath="", basepath="", log_level='INFO', if_exists="
         runs_to_deploy = [r for r in runs_to_deploy if r["id"] in runs]
 
     try:
-        retrieve_outputs(runs_to_deploy, outpath, basepath, if_exists=if_exists,
-                         path_regex=path_regex, ignore_regex=ignore_regex)
+        retrieve_outputs(
+            runs_to_deploy, outpath, basepath, if_exists=if_exists,
+            path_regex=path_regex, ignore_regex=ignore_regex)
     except RuntimeError as err:
         logger.critical(err)
 
@@ -82,49 +87,69 @@ class ErrorParser(argparse.ArgumentParser):
     """
     on error; print help string
     """
+
     def error(self, message):
         sys.stderr.write('error: %s\n' % message)
         self.print_help()
         sys.exit(2)
 
-if __name__ == "__main__":
+
+def main(sys_args=None):
+
+    if sys_args is None:
+        sys_args = sys.argv[1:]
 
     parser = ErrorParser(
-        description='retrieve outputs created by processes run from a config.yaml file'
+        description=(
+            'retrieve outputs created by processes '
+            'run from a config.yaml file')
     )
     parser.add_argument("configpath", type=str,
                         help='yaml config file path', metavar='filepath')
     parser.add_argument("-o", "--outpath", type=str, metavar='str',
-                        help='base path to output to', default=os.path.join(os.getcwd(), "outputs"))
+                        help='base path to output to',
+                        default=os.path.join(os.getcwd(), "outputs"))
     parser.add_argument("-b", "--basepath", type=str, metavar='str',
-                        help='path to use when resolving relative paths in the config file',
+                        help=('path to use when resolving relative paths '
+                              'in the config file'),
                         default=os.getcwd())
     parser.add_argument('-r', '--runs', type=str2intlist, default=None,
-                        help="subset of run ids, in delimited list, e.g. -r 1,5-6,7")
+                        help=("subset of run ids, in delimited list, "
+                              "e.g. -r 1,5-6,7"))
     parser.add_argument("-ie", "--if-exists", type=str, default='abort',
                         choices=['abort', 'remove', 'use'],
-                        help="if a run's output directory already exists either; "
-                             "abort the run, remove its contents, or use it without removal "
-                             "(existing files will be overwritten)")
+                        help=(
+                            "if a run's output directory already exists "
+                            "either; abort the run, remove its contents, "
+                            "or use it without removal "
+                            "(existing files will be overwritten)"))
     parser.add_argument("-log", "--log-level", type=str, default='info',
-                        choices=['debug_full', 'debug', 'info', 'exec', 'warning', 'error'],
-                        help='the logging level to output to screen/file '
-                             '(NB: debug_full allows logging from external packages)')
+                        choices=['debug_full', 'debug', 'info',
+                                 'exec', 'warning', 'error'],
+                        help=(
+                            'the logging level to output to screen/file '
+                            '(NB: debug_full '
+                            'allows logging from external packages)'))
     parser.add_argument("-rx", "--path-regex", type=str, metavar='str',
                         help='file/folder regex to retrieve', default="*")
-    parser.add_argument("-ix", "--ignore-regex", type=str, metavar='str', nargs='*',
+    parser.add_argument("-ix", "--ignore-regex", type=str,
+                        metavar='str', nargs='*',
                         help='file regexes to ignore')
     # parser.add_argument("--test-run", action="store_true",
-    #                     help='do not run any executables (only create directories and create/copy files)')
+    #                     help=('do not run any executables '
+    # '(only create directories and create/copy files)'))
+    parser.add_argument('--version', action='version', version=__version__)
 
-    args = parser.parse_args()
+    args = parser.parse_args(sys_args)
     options = vars(args)
 
     if options["if_exists"] == "remove":
-        if not cmndline_prompt("Are you sure you wish to remove existing outputs?"):
+        if not cmndline_prompt(
+                "Are you sure you wish to remove existing outputs?"):
             sys.exit()
     elif options["if_exists"] == "use":
-        if not cmndline_prompt("Are you sure you wish to overwrite existing outputs?"):
+        if not cmndline_prompt(
+                "Are you sure you wish to overwrite existing outputs?"):
             sys.exit()
 
     filepath = options.pop('configpath')

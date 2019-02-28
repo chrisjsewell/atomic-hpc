@@ -5,6 +5,7 @@ import argparse
 import logging
 import logging.handlers
 from jsonschema import ValidationError
+from atomic_hpc import __version__
 from atomic_hpc.config_yaml import format_config_yaml
 from atomic_hpc.deploy_runs import deploy_runs
 from atomic_hpc.utils import cmndline_prompt, str2intlist
@@ -12,7 +13,8 @@ from atomic_hpc.utils import cmndline_prompt, str2intlist
 logger = logging.getLogger('atomic_hpc.run_config')
 
 
-def run(fpath, runs=None, basepath="", log_level='INFO', ignore_fail=False, if_exists="abort", test_run=False):
+def run(fpath, runs=None, basepath="", log_level='INFO',
+        ignore_fail=False, if_exists="abort", test_run=False):
     """
 
     Parameters
@@ -24,7 +26,8 @@ def run(fpath, runs=None, basepath="", log_level='INFO', ignore_fail=False, if_e
     ignore_fail: bool
         if True; if a command line execution fails continue the run
     if_exists: ["abort", "remove", "use"]
-        either; raise an IOError if the output path already exists, remove the output path or use it without change
+        either; raise an IOError if the output path already exists,
+        remove the output path or use it without change
     test_run: bool
         if True don't run any executables
 
@@ -52,7 +55,8 @@ def run(fpath, runs=None, basepath="", log_level='INFO', ignore_fail=False, if_e
     root.addHandler(stream_handler)
 
     # TODO add option for file logger
-    # file_handler = logging.FileHandler(os.path.join(outdir, ipynb_name + '.config.log'), 'w')
+    # file_handler = logging.FileHandler(
+    # os.path.join(outdir, ipynb_name + '.config.log'), 'w')
     # file_handler.setLevel(getattr(logging, log_level.upper()))
     # file_handler.setFormatter(formatter)
     # file_handler.propogate = False
@@ -74,55 +78,75 @@ def run(fpath, runs=None, basepath="", log_level='INFO', ignore_fail=False, if_e
     exec_errors = not ignore_fail
 
     try:
-        deploy_runs(runs_to_deploy, basepath, if_exists=if_exists, exec_errors=exec_errors, test_run=test_run)
+        deploy_runs(runs_to_deploy, basepath, if_exists=if_exists,
+                    exec_errors=exec_errors, test_run=test_run)
     except RuntimeError as err:
         logger.critical(err)
         return
+
 
 class ErrorParser(argparse.ArgumentParser):
     """
     on error; print help string
     """
+
     def error(self, message):
         sys.stderr.write('error: %s\n' % message)
         self.print_help()
         sys.exit(2)
 
 
-if __name__ == "__main__":
+def main(sys_args=None):
+
+    if sys_args is None:
+        sys_args = sys.argv[1:]
 
     parser = ErrorParser(
-        description='use a config.yaml file to run process on a local or remote host'
+        description=(
+            'use a config.yaml file to run process on a local or remote host')
     )
     parser.add_argument("configpath", type=str,
                         help='yaml config file path', metavar='filepath')
     parser.add_argument("-b", "--basepath", type=str, metavar='str',
-                        help='path to use when resolving relative paths in the config file',
+                        help=('path to use when resolving relative paths '
+                              'in the config file'),
                         default=os.getcwd())
     parser.add_argument('-r', '--runs', type=str2intlist, default=None,
-                        help="subset of run ids, in delimited list, e.g. -r 1,5-6,7")
+                        help=("subset of run ids, in delimited list, "
+                              "e.g. -r 1,5-6,7"))
     parser.add_argument("-ie", "--if-exists", type=str, default='abort',
                         choices=['abort', 'remove', 'use'],
-                        help="if a run's output directory already exists either; "
-                             "abort the run, remove its contents, or use it without removal "
-                             "(existing files will be overwritten)")
+                        help=("if a run's output directory already exists, "
+                              "either; abort the run, "
+                              "remove its contents, or use it without removal "
+                              "(existing files will be overwritten)"))
     parser.add_argument("-if", "--ignore-fail", action="store_true",
-                        help='if a command line execution fails continue the run (default is to abort the run)')
+                        help=(
+                            'if a command line execution fails, '
+                            'continue the run (default is to abort the run)'))
     parser.add_argument("-log", "--log-level", type=str, default='info',
-                        choices=['debug_full', 'debug', 'info', 'exec', 'warning', 'error'],
-                        help='the logging level to output to screen/file '
-                             '(NB: debug_full allows logging from external packages)')
+                        choices=['debug_full', 'debug', 'info',
+                                 'exec', 'warning', 'error'],
+                        help=(
+                            'the logging level to output to screen/file (NB: '
+                            'debug_full allows logging from external packages)'
+                        ))
     parser.add_argument("--test-run", action="store_true",
-                        help='do not run any executables (only create directories and create/copy files)')
+                        help=(
+                            'do not run any executables '
+                            '(only create directories and create/copy files)'))
+    parser.add_argument('--version', action='version', version=__version__)
 
-    args = parser.parse_args()
+    args = parser.parse_args(sys_args)
     options = vars(args)
 
     if options["if_exists"] == "remove":
-        if not cmndline_prompt("Are you sure you wish to remove existing outputs?"):
+        if not cmndline_prompt(
+                "Are you sure you wish to remove existing outputs?"):
             sys.exit()
     elif options["if_exists"] == "use":
-        if not cmndline_prompt("Are you sure you wish to overwrite existing outputs?"):
+        if not cmndline_prompt(
+                "Are you sure you wish to overwrite existing outputs?"):
             sys.exit()
 
     filepath = options.pop('configpath')

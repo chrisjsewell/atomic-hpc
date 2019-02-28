@@ -60,5 +60,10 @@ with io.open('README.md') as readme:
                 "wrong-user-key"
             ],
         },
-        scripts=['bin/run_config', "bin/retrieve_config"],
+        entry_points={
+            'console_scripts': [
+                'run_config = atomic_hpc.frontend.run_config:main',
+                'retrieve_config = atomic_hpc.frontend.retrieve_config:main'
+            ]
+        }
     )
