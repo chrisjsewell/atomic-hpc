@@ -4,13 +4,14 @@ atomic-hpc
 [![travis](https://travis-ci.org/chrisjsewell/atomic-hpc.svg?branch=master)](https://travis-ci.org/chrisjsewell/atomic-hpc)
 [![coveralls](https://coveralls.io/repos/github/chrisjsewell/atomic-hpc/badge.svg?branch=master)](https://coveralls.io/github/chrisjsewell/atomic-hpc?branch=master)
 [![PyPI](https://img.shields.io/pypi/v/atomic-hpc.svg)](https://pypi.python.org/pypi/atomic-hpc/)
+[![Anaconda-Server Badge](https://anaconda.org/conda-forge/atomic-hpc/badges/version.svg)](https://anaconda.org/conda-forge/atomic-hpc)
 
 <!-- [![codacy](https://api.codacy.com/project/badge/Grade/e0b541be3f834f12b77c712433ee64c9)](https://www.codacy.com/app/chrisj_sewell/atomic-hpc?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=chrisjsewell/atomic-hpc&amp;utm_campaign=Badge_Grade) -->
 
 **Project**: <https://github.com/chrisjsewell/atomic-hpc>
 
-A package for running multiple executable scripts on both local and remote hosts, 
-configured using a modern standard [YAML](https://en.wikipedia.org/wiki/YAML) file. 
+A package for running multiple executable scripts on both local and remote hosts,
+configured using a modern standard [YAML](https://en.wikipedia.org/wiki/YAML) file.
 This package was designed, in particular, for job submission to High Performance Computing (HPC) clusters, such as the
 [Imperial HPC facility](https://www.imperial.ac.uk/admin-services/ict/self-service/research-support/hpc/).
 Working examples can be found [here](https://github.com/chrisjsewell/atomic-hpc/tree/master/examples).
@@ -18,15 +19,18 @@ Working examples can be found [here](https://github.com/chrisjsewell/atomic-hpc/
 Installation
 ------------
 
-It is recommended to setup an [Anaconda](https://docs.continuum.io/anaconda/install/) environment. 
-For the Imperial HPC, run the following (as outlined on the [wiki](https://wiki.imperial.ac.uk/display/HPC/Python)):
+It is recommended to setup an [Anaconda](https://docs.continuum.io/anaconda/install/) environment.
+
+    >> conda install -c conda-forge atomic-hpc
+
+Optionally install atomic-hpc using pip:
+
+    >> pip install atomic-hpc
+
+To use conda on the Imperial HPC (not required), run the following (as outlined on the [wiki](https://wiki.imperial.ac.uk/display/HPC/Python)):
 
     >> module load anaconda3/personal
     >> anaconda-setup
-    
-Then install atomic-hpc simply by:
-
-    >> pip install atomic-hpc
 
 Minimal Example
 ---------------
