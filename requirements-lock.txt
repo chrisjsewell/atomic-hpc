@@ -7,7 +7,7 @@
 asn1crypto==0.24.0        # via cryptography
 bcrypt==3.1.6             # via paramiko
 cffi==1.11.5              # via bcrypt, cryptography, pynacl
-cryptography==2.5         # via paramiko
+cryptography==3.2         # via paramiko
 jsonextended==0.7.7
 jsonschema==2.6.0
 paramiko==2.4.2
